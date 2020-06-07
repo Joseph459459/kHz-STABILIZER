@@ -145,8 +145,8 @@ void processing_thread::analyze_spectrum() {
 
 	else {
 
-		centroidx.resize(window);
-		centroidy.resize(window);
+		centroidx_f.resize(window);
+		centroidy_f.resize(window);
 
 		camera.MaxNumBuffer.SetValue(window);
 		camera.GevSCPSPacketSize.SetValue(((camera.Height.GetValue() * camera.Width.GetValue() + 14) / 4) * 4);
@@ -173,7 +173,7 @@ void processing_thread::analyze_spectrum() {
 
 		camera.StopGrabbing();
 
-		emit updateprogress(5000);
+		emit updateprogress(window);
 
 		emit write_to_log(QString::number(i) + QString(" Shots recorded"));
 
@@ -196,28 +196,28 @@ void processing_thread::analyze_spectrum() {
 			if (std::isnan(centroids.resultAt(i)[0]))
 				++nans;
 
-			centroidx[i] = centroids.resultAt(i)[0];
-			sumx += centroidx[i];
+			centroidx_f[i] = centroids.resultAt(i)[0];
+			sumx += centroidx_f[i];
 
 			if (std::isnan(centroids.resultAt(i)[1]))
 				++nans;
 
-			centroidy[i] = centroids.resultAt(i)[1];
-			sumy += centroidy[i];
+			centroidy_f[i] = centroids.resultAt(i)[1];
+			sumy += centroidy_f[i];
 		}
 
 		float meanx = sumx / window;
 		float meany = sumy / window;
 
 		for (int i = 0; i < window; ++i) {
-			centroidx[i] -= meanx;
-			centroidy[i] -= meany;
+			centroidx_f[i] -= meanx;
+			centroidy_f[i] -= meany;
 		}
 
 		write_to_log(QString::number(nans) + QString(" NaN centroids detected"));
 
-		planx = fftwf_plan_r2r_1d(window, centroidx.data(), fft_outx, FFTW_R2HC, FFTW_ESTIMATE);
-		plany = fftwf_plan_r2r_1d(window, centroidy.data(), fft_outy, FFTW_R2HC, FFTW_ESTIMATE);
+		planx = fftwf_plan_r2r_1d(window, centroidx_f.data(), fft_outx, FFTW_R2HC, FFTW_ESTIMATE);
+		plany = fftwf_plan_r2r_1d(window, centroidy_f.data(), fft_outy, FFTW_R2HC, FFTW_ESTIMATE);
 
 		fftwf_execute(planx);
 		fftwf_execute(plany);
@@ -257,7 +257,7 @@ void processing_thread::analyze_spectrum() {
 
 		}
 
-		emit updatefftplot();
+		emit update_fft_plot();
 
 		fftwf_destroy_plan(planx);
 		fftwf_destroy_plan(plany);
@@ -375,15 +375,17 @@ void processing_thread::find_actuator_range() {
 
 void processing_thread::learn_transfer_function() {
 
-	adjust_framerate();
-
 	emit write_to_log(QString("Finding Pixel/DAC Transfer Function..."));
 
+	adjust_framerate();
 
 	if (camera.ResultingFrameRateAbs.GetValue() < 1000) {
 		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
 	}
 	else {
+
+		centroidx_d.resize(window_2);
+		centroidy_d.resize(window_2);
 
 #pragma region OPEN_PORT
 
@@ -426,28 +428,60 @@ void processing_thread::learn_transfer_function() {
 
 #pragma endregion
 
+		tf_input_arr.resize(window_2);
+
+		tf_input(tf_input_arr.data(), yDACmax);
+
 		GrabResultPtr_t ptr;
 
 		teensy.write(QByteArray(1, LEARN_TF));
-		teensy.waitForBytesWritten(50);
+		if (!teensy.waitForBytesWritten(100)) {
+			emit write_to_log(QString("Synchronization error: could not write"));
+			teensy.close();
+			emit finished_analysis();
+			return;
+		}
 
 		int missed = 0;
 		int i = 0;
+		
 		camera.StartGrabbing();
 
+		while (i < window_2) {
 
-		while (i < window) {
 			if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
+				
+				std::array<float,2> out = centroid(ptr, threshold);
+				
+				centroidx_d[i] = out[0];
+				centroidy_d[i] = out[1];
+				
+				teensy.write(QByteArray(1, SYNC_FLAG));
+				if (!teensy.waitForBytesWritten(100)) {
+					emit write_to_log(QString("Synchronization error: could not write"));
+					break;
+				}
 				++i;
 			}
 			else {
 				++missed;
 			}
 
-			if (i % (window / 100) == 0) {
+			if (i % (window_2 / 100) == 0) {
 				emit updateprogress(i);
 			}
 		}
+
+		camera.StopGrabbing();
+		teensy.close();
+
+		emit updateprogress(window_2);
+
+		emit update_tf_plot();
+		
+		emit finished_analysis();
+
+
 	}
 
 }

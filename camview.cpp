@@ -234,7 +234,7 @@ void camview::on_noiseSpectrumButton_clicked() {
 
 	safe_thread_close();
 
-	progressbox = new QProgressDialog("Recording...", "Abort", 0, 5000, this);
+	progressbox = new QProgressDialog("Recording...", "Abort", 0, window, this);
 	progressbox->setAutoClose(true);
 	progressbox->setAttribute(Qt::WA_DeleteOnClose);
 	connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
@@ -260,7 +260,7 @@ void camview::on_transferFunctionButton_clicked() {
 
 	safe_thread_close();
 
-	progressbox = new QProgressDialog("Recording...", "Abort", 0, 5000, this);
+	progressbox = new QProgressDialog("Recording...", "Abort", 0, window_2, this);
 	progressbox->setAutoClose(true);
 	progressbox->setAttribute(Qt::WA_DeleteOnClose);
 	connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
@@ -278,13 +278,13 @@ void camview::on_exposureBox_valueChanged(int i) {
 }
 
 void camview::on_upButton_clicked() {
-	if (proc_thread->camera.Height() + 4 < proc_thread->camera.HeightMax())
-		proc_thread->camera.OffsetY.SetValue(proc_thread->camera.OffsetY() + 4);
+	if (proc_thread->camera.OffsetY() - 4 > 0)
+		proc_thread->camera.OffsetY.SetValue(proc_thread->camera.OffsetY() - 4);
 }
 
 void camview::on_downButton_clicked() {
-	if (proc_thread->camera.OffsetY() - 4 > 0)
-		proc_thread->camera.OffsetY.SetValue(proc_thread->camera.OffsetY() - 4);
+	if (proc_thread->camera.Height() + 4 < proc_thread->camera.HeightMax())
+		proc_thread->camera.OffsetY.SetValue(proc_thread->camera.OffsetY() + 4);
 }
 
 void camview::on_rightButton_clicked() {

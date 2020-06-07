@@ -54,7 +54,7 @@ border-width: 1px;
 }
 
 QPushButton::pressed{
-background-color:  rgba(200,100,0,50);
+background-color:  rgba(200,100,0,20);
 border-style: inset;
 
 

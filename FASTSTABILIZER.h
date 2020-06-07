@@ -1,8 +1,6 @@
 #pragma once
 #include "ui_FASTSTABILIZER.h"
 #include <QtWidgets/QMainWindow>
-#include <QSerialPort>
-#include <QSerialPortInfo>
 #include "console.h"
 #include "processing_thread.h"
 #include <QDebug>
@@ -12,9 +10,10 @@
 #include <cmath>
 #include <QVector>
 #include <QRgb>
-#include <QtConcurrent>
 #include <QSharedPointer>
-
+#include <QtConcurrent/qtconcurrentmap.h>
+#include <QtSerialPort/qserialport.h>
+#include <QtSerialPort/qserialportinfo.h>
 
 
 struct myFilter {
@@ -50,7 +49,9 @@ public slots:
 	void on_stabilizeButton_clicked();
 	void on_stopButton_clicked();
 	void on_learnButton_clicked();
-	void updatefftplot();
+	void create_tf_plots();
+	void update_fft_plot();
+	void update_tf_plot();
 	void on_horizontalZoomButton_toggled(bool j);
 	void new_filter(const QCPDataSelection& p);
 	void remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* e);

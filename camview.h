@@ -39,7 +39,7 @@ public slots:
 
 signals:
 	void write_to_log(QString q);
-	void updatefftplot();
+	void update_fft_plot();
 
 private:
 	Ui::camview ui;

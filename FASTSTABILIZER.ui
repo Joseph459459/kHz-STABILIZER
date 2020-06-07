@@ -248,8 +248,162 @@
    <string notr="true">background-color: rgb(255, 255, 255);</string>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QHBoxLayout" name="horizontalLayout">
-    <item>
+   <layout class="QGridLayout" name="gridLayout_5">
+    <item row="0" column="1">
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetFixedSize</enum>
+      </property>
+      <item>
+       <widget class="QPushButton" name="stabilizeButton">
+        <property name="font">
+         <font>
+          <family>Source Code Pro</family>
+         </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton{
+border-style: solid;
+border-color: rgba(200,100,0,150);
+border-width: 1px;
+}
+
+QPushButton::pressed{
+background-color:  rgba(200,100,0,20);
+border-style: inset;
+
+
+}</string>
+        </property>
+        <property name="text">
+         <string>Stabilize</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="learnButton">
+        <property name="font">
+         <font>
+          <family>Source Code Pro</family>
+         </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton{
+border-style: solid;
+border-color: rgba(200,100,0,130);
+border-width: 1px;
+}
+
+QPushButton::pressed{
+background-color:  rgba(200,100,0,20);
+border-style: inset;
+
+
+}</string>
+        </property>
+        <property name="text">
+         <string>Learn</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <property name="autoExclusive">
+         <bool>true</bool>
+        </property>
+        <property name="default">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="stopButton">
+        <property name="font">
+         <font>
+          <family>Source Code Pro</family>
+         </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton{
+border-style: solid;
+border-color: rgba(200,100,0,130);
+border-width: 1px;
+}
+
+QPushButton::pressed{
+background-color:  rgba(200,100,0,20);
+border-style: inset;
+
+
+}</string>
+        </property>
+        <property name="text">
+         <string>Stop</string>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="label">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <family>Source Code Pro</family>
+         </font>
+        </property>
+        <property name="text">
+         <string>Buffers Lost:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="Line" name="line">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLabel" name="bufferslostLabel">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>0</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="verticalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </item>
+    <item row="0" column="0">
      <layout class="QGridLayout" name="gridLayout_2">
       <item row="0" column="0">
        <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -405,11 +559,11 @@ QRadioButton::indicator:unchecked {
          <enum>QTabWidget::Triangular</enum>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>2</number>
         </property>
         <widget class="QWidget" name="plotTab">
          <attribute name="title">
-          <string>g</string>
+          <string>Spectrum</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_3">
           <item row="0" column="0">
@@ -597,164 +751,20 @@ QRadioButton::indicator:unchecked {
           </item>
          </layout>
         </widget>
+        <widget class="QWidget" name="transferFunctionTab">
+         <attribute name="title">
+          <string>Transfer Function </string>
+         </attribute>
+         <layout class="QGridLayout" name="gridLayout_6">
+          <item row="0" column="0">
+           <widget class="QCustomPlot" name="tf_plot" native="true"/>
+          </item>
+         </layout>
+        </widget>
        </widget>
       </item>
       <item row="1" column="0">
        <spacer name="verticalSpacer">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>40</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-     </layout>
-    </item>
-    <item>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <property name="sizeConstraint">
-       <enum>QLayout::SetFixedSize</enum>
-      </property>
-      <item>
-       <widget class="QPushButton" name="stabilizeButton">
-        <property name="font">
-         <font>
-          <family>Source Code Pro</family>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton{
-border-style: solid;
-border-color: rgba(200,100,0,150);
-border-width: 1px;
-}
-
-QPushButton::pressed{
-background-color:  rgba(200,100,0,50);
-border-style: inset;
-
-
-}</string>
-        </property>
-        <property name="text">
-         <string>Stabilize</string>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-        <property name="flat">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="learnButton">
-        <property name="font">
-         <font>
-          <family>Source Code Pro</family>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton{
-border-style: solid;
-border-color: rgba(200,100,0,130);
-border-width: 1px;
-}
-
-QPushButton::pressed{
-background-color:  rgba(200,100,0,50);
-border-style: inset;
-
-
-}</string>
-        </property>
-        <property name="text">
-         <string>Learn</string>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-        <property name="autoExclusive">
-         <bool>true</bool>
-        </property>
-        <property name="default">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="stopButton">
-        <property name="font">
-         <font>
-          <family>Source Code Pro</family>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton{
-border-style: solid;
-border-color: rgba(200,100,0,130);
-border-width: 1px;
-}
-
-QPushButton::pressed{
-background-color:  rgba(200,100,0,50);
-border-style: inset;
-
-
-}</string>
-        </property>
-        <property name="text">
-         <string>Stop</string>
-        </property>
-        <property name="checkable">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="label">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="font">
-         <font>
-          <family>Source Code Pro</family>
-         </font>
-        </property>
-        <property name="text">
-         <string>Buffers Lost:</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="Line" name="line">
-        <property name="orientation">
-         <enum>Qt::Horizontal</enum>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QLabel" name="bufferslostLabel">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string>0</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <spacer name="verticalSpacer_2">
         <property name="orientation">
          <enum>Qt::Vertical</enum>
         </property>

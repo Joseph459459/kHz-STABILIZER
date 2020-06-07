@@ -1,7 +1,7 @@
 #include "cameraselect.h"
 #include "FS_macros.h"
 #include <QThread>
-#include <QSerialPort>
+#include <QtSerialPort/qserialport.h>
 #include "filt.h"
 #include "fftw3.h"
 #include <QFuture>
@@ -14,11 +14,15 @@ class processing_thread : public QThread
 public:
 	explicit processing_thread(CDeviceInfo c, QObject* parent);
 	~processing_thread();
-	
+
+	QVector<float> centroidx_f;
+	QVector<float> centroidy_f;
+	QVector<double> centroidx_d;
+	QVector<double> centroidy_d;
+
 	Camera_t camera;
 	std::atomic<bool> acquiring = false;
-	QVector<float> centroidx;
-	QVector<float> centroidy;
+
 	float fft_outx[window];
 	float fft_outy[window];
 	QVector<double> LPfftx;
@@ -29,6 +33,7 @@ public:
 	int threshold = 0;
 	uint16_t yDACmax;
 	uint16_t xDACmax;
+	QVector<uint16_t> tf_input_arr;
 
 public slots:
 	//void stabilize();
@@ -44,7 +49,8 @@ signals:
 	void send_imgptr_blocking(GrabResultPtr_t ptr);
 	void updateimagesize(int width, int height);
 	void updateprogress(int i);
-	void updatefftplot();
+	void update_fft_plot();
+	void update_tf_plot();
 	void finished_analysis();
 
 private:

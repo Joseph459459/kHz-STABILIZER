@@ -130,56 +130,6 @@ void postsetup() {
 }
 
 void loop() {
-	//#ifdef _DEBUG_
-	//
-	//	in[0] = sine[n % 2000];
-	//
-	//	delay(90);
-	//	elapsedMicros e;
-	//	for (j = 0; j < num_tones; ++j) {
-	//
-	//		x_.Chi[j].mag =
-	//			2 / x_.N[j] * sqrtf(sq(x_.Chi[j].mag) +
-	//				x_.Chi[j].mag * (2 * (cosf(x_.w[j] * x_.N[j] + x_.Chi[j].phase) * in[0] -
-	//					cosf(x_.Chi[j].phase) * x_.prev[j])) + sq(x_.prev[j]) + sq(in[0]) -
-	//				2 * in[0] * x_.prev[j] * cosf(x_.w[j] * x_.N[j]));
-	//
-	//		x_.Chi[j].phase = atan2f(
-	//			x_.Chi[j].mag * sinf(x_.w[j] + x_.Chi[j].phase) -
-	//			x_.prev[j] * sinf(x_.w[j]) - in[0] * sinf(x_.w[j] * (x_.N[j] - 1)),
-	//
-	//			x_.Chi[j].mag * cosf(x_.w[j] + x_.Chi[j].phase) -
-	//			x_.prev[j] * cosf(x_.w[j]) + in[0] * cosf(x_.w[j] * (x_.N[j] - 1)));
-	//
-	//		differential[0] = differential[0] +
-	//
-	//			x_.Chi[j].mag * cosf(x_.w[j] * x_.N[j] + x_.Chi[j].phase) -
-	//			x_.Chi[j].mag * cosf(x_.w[j] * (x_.N[j] - 1) + x_.Chi[j].phase);
-	//
-	//	}
-	//
-	//	analogWriteDAC0(0);
-	//	analogWriteDAC1(0);
-	//
-	//	Serial.print(in[0]);
-	//	Serial.print(" ");
-	//	Serial.println(in[0] + differential[0]);
-	//	Serial.send_now();
-	//
-	//	differential[0] = 0;
-	//
-	//
-	//	for (int i = 0; i < num_tones; ++i) {
-	//
-	//		if (n >= x_.N[j]) {
-	//			x_.prev[j] = xsignal[x_.prev_idx[j]];
-	//			x_.prev_idx[j] = (x_.prev_idx[j] + 1) % x_.maxN;
-	//		}
-	//	}
-	//
-	//	xsignal[n % x_.maxN] = in[0];
-	//	++n;
-	//#endif 
 
 }
 
@@ -243,22 +193,14 @@ void stabilize() {
 }
 
 void learn_tf() {
+	
+	tf_input_arr = new uint16_t[window_2];
 
-	tf_input();
-
-	Serial.write(CONTINUE);
-
-	// 0.144 micros per loop iteration
-	while (!Serial.available()) {
-		if (++timeout > 6e6)
-			taper_down();
-	}
-	timeout = 0;
-	Serial.read();
+	tf_input(tf_input_arr,yDACmax);
 
 	i = 0;
 
-	while (i < 3000) {
+	while (i < window_2) {
 
 		// 0.144 micros per loop iteration
 		while (!Serial.available()) {
@@ -267,16 +209,19 @@ void learn_tf() {
 		}
 		timeout = 0;
 
-		Serial.read();
+		if (Serial.read() != SYNC_FLAG) {
+			Serial.clear();
+		}
+		else {
+			delayMicroseconds(25);
+			analogWriteDAC0(tf_input_arr[i]);
+			analogWriteDAC1(tf_input_arr[i]);
 
-		delayMicroseconds(25);
-		analogWriteDAC0(tf_input_arr[i]);
-
-		++i;
+			++i;
+		}
 	}
 
 	delete tf_input_arr;
-
 
 }
 
@@ -303,7 +248,7 @@ void find_range() {
 
 		else {
 			if (Serial.read() == STOP_FLAG) {
-				yDACmax = curry;
+				yDACmax = curry - 5;
 				Serial.write((byte)STOP_FLAG);
 				Serial.write((const byte*)&yDACmax, 2);
 				break;
@@ -352,17 +297,3 @@ static void ramp_up(int x) {
 	}
 }
 
-inline void tf_input() {
-
-	tf_input_arr = new uint16_t[window];
-
-	for (int i = 0; i < 1000; ++i) {
-
-		tf_input_arr[i] = yDACmax / 2 / 1000.0 * i;
-
-		tf_input_arr[i + 1000] = yDACmax / 2 * sin(2 * PI * i / 100) + yDACmax / 2;
-
-		tf_input_arr[i + 2000] = (i % 100) / 50 ? yDACmax : 0;
-
-	}
-}

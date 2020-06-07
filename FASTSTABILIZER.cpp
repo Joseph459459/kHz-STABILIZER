@@ -13,8 +13,10 @@ FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
 {
 	ui.setupUi(this);
 
+	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::error_handling);
+
 	create_fft_plots();
-		
+	create_tf_plots();
 }
 
 FASTSTABILIZER::~FASTSTABILIZER() {
@@ -56,7 +58,8 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 	connect(&proc_thread, &processing_thread::sendImagePtr, CV, &camview::updateimage);
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, CV, &camview::updateimage,Qt::BlockingQueuedConnection);
 
-	connect(&proc_thread, &processing_thread::updatefftplot, this, &FASTSTABILIZER::updatefftplot);
+	connect(&proc_thread, &processing_thread::update_fft_plot, this, &FASTSTABILIZER::update_fft_plot);
+	connect(&proc_thread, &processing_thread::update_tf_plot, this, &FASTSTABILIZER::update_tf_plot);
 
 	CV->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -67,33 +70,71 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 
 }
 
-void FASTSTABILIZER::create_fft_plots() {
-	
-	freqs.resize(window / 2.0);
+void FASTSTABILIZER::create_tf_plots() {
 
-	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::error_handling);
+	ui.tf_plot->plotLayout()->clear();
+	ui.tf_plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
+
+	QCPAxisRect* tfaxes_x = new QCPAxisRect(ui.tf_plot, false);
+	QCPAxisRect* tfaxes_y = new QCPAxisRect(ui.tf_plot, false);
+
+	ui.tf_plot->plotLayout()->addElement(0, 0, tfaxes_x);
+	ui.tf_plot->plotLayout()->addElement(1, 0, tfaxes_y);
+
+	tfaxes_x->addAxes(QCPAxis::atLeft | QCPAxis::atBottom | QCPAxis::atRight);
+	tfaxes_x->axis(QCPAxis::atBottom)->grid()->setVisible(true);
+	tfaxes_x->axis(QCPAxis::atLeft)->grid()->setVisible(true);
+	tfaxes_x->axis(QCPAxis::atRight)->grid()->setVisible(true);
+
+	tfaxes_y->addAxes(QCPAxis::atLeft | QCPAxis::atBottom | QCPAxis::atRight);
+	tfaxes_y->axis(QCPAxis::atBottom)->grid()->setVisible(true);
+	tfaxes_y->axis(QCPAxis::atLeft)->grid()->setVisible(true);
+	tfaxes_y->axis(QCPAxis::atRight)->grid()->setVisible(true);
+
+	tfaxes_x->setRangeZoomAxes(tfaxes_x->axis(QCPAxis::atBottom), NULL);
+	tfaxes_x->setRangeDragAxes(tfaxes_x->axis(QCPAxis::atBottom), NULL);
+
+	tfaxes_y->setRangeZoomAxes(tfaxes_y->axis(QCPAxis::atBottom), NULL);
+	tfaxes_y->setRangeDragAxes(tfaxes_y->axis(QCPAxis::atBottom), NULL);
+
+	ui.tf_plot->addGraph(tfaxes_x->axis(QCPAxis::atBottom), tfaxes_x->axis(QCPAxis::atLeft));
+	ui.tf_plot->addGraph(tfaxes_x->axis(QCPAxis::atBottom), tfaxes_x->axis(QCPAxis::atRight));
+	ui.tf_plot->addGraph(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atLeft));
+	ui.tf_plot->addGraph(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atRight));
+
+	tfaxes_x->axis(QCPAxis::atLeft)->setLabel("DAC Output");
+	tfaxes_x->axis(QCPAxis::atRight)->setLabel("Centroid X");
+
+	tfaxes_y->axis(QCPAxis::atLeft)->setLabel("DAC Output");
+	tfaxes_y->axis(QCPAxis::atRight)->setLabel("Centroid Y");
+
+	ui.tf_plot->replot();
+
+}
+
+void FASTSTABILIZER::create_fft_plots() {
 
 	ui.plot->plotLayout()->clear();
-	QCPAxisRect* fftaxesX = new QCPAxisRect(ui.plot, false);
-	QCPAxisRect* fftaxesY = new QCPAxisRect(ui.plot, false);
+	QCPAxisRect* fftaxes_x = new QCPAxisRect(ui.plot, false);
+	QCPAxisRect* fftaxes_y = new QCPAxisRect(ui.plot, false);
 
-	ui.plot->plotLayout()->addElement(0, 0, fftaxesX);
-	ui.plot->plotLayout()->addElement(1, 0, fftaxesY);
+	ui.plot->plotLayout()->addElement(0, 0, fftaxes_x);
+	ui.plot->plotLayout()->addElement(1, 0, fftaxes_y);
 
-	fftaxesX->addAxes(QCPAxis::atLeft | QCPAxis::atBottom);
-	fftaxesY->addAxes(QCPAxis::atLeft | QCPAxis::atBottom);
+	fftaxes_x->addAxes(QCPAxis::atLeft | QCPAxis::atBottom);
+	fftaxes_y->addAxes(QCPAxis::atLeft | QCPAxis::atBottom);
 
-	fftaxesX->axis(QCPAxis::atBottom)->grid()->setVisible(true);
-	fftaxesX->axis(QCPAxis::atLeft)->grid()->setVisible(true);
+	fftaxes_x->axis(QCPAxis::atBottom)->grid()->setVisible(true);
+	fftaxes_x->axis(QCPAxis::atLeft)->grid()->setVisible(true);
 
-	fftaxesY->axis(QCPAxis::atBottom)->grid()->setVisible(true);
-	fftaxesY->axis(QCPAxis::atLeft)->grid()->setVisible(true);
+	fftaxes_y->axis(QCPAxis::atBottom)->grid()->setVisible(true);
+	fftaxes_y->axis(QCPAxis::atLeft)->grid()->setVisible(true);
 
-	fftaxesX->setRangeZoomAxes(fftaxesX->axis(QCPAxis::atBottom), NULL);
-	fftaxesY->setRangeDragAxes(fftaxesX->axis(QCPAxis::atBottom), NULL);
+	fftaxes_x->setRangeZoomAxes(fftaxes_x->axis(QCPAxis::atBottom), NULL);
+	fftaxes_y->setRangeDragAxes(fftaxes_x->axis(QCPAxis::atBottom), NULL);
 
-	ui.plot->addGraph(fftaxesX->axis(QCPAxis::atBottom), fftaxesX->axis(QCPAxis::atLeft));
-	ui.plot->addGraph(fftaxesY->axis(QCPAxis::atBottom), fftaxesY->axis(QCPAxis::atLeft));
+	ui.plot->addGraph(fftaxes_x->axis(QCPAxis::atBottom), fftaxes_x->axis(QCPAxis::atLeft));
+	ui.plot->addGraph(fftaxes_y->axis(QCPAxis::atBottom), fftaxes_y->axis(QCPAxis::atLeft));
 
 	ui.plot->axisRect(0)->axis(QCPAxis::atLeft)->setLabel(QString("Centroid X"));
 	ui.plot->axisRect(1)->axis(QCPAxis::atLeft)->setLabel(QString("Centroid Y"));
@@ -113,8 +154,9 @@ void FASTSTABILIZER::create_fft_plots() {
 	connect(ui.plot->graph(1), qOverload<const QCPDataSelection&>(&QCPAbstractPlottable::selectionChanged),
 		this, &FASTSTABILIZER::new_filter);
 
-
 	ui.plot->replot();
+
+	freqs.resize(window / 2.0);
 
 	for (int i = 0; i < window / 2; ++i) {
 		freqs[i] = (sampling_freq / 2.0) / (window / 2.0) * i;
@@ -154,10 +196,9 @@ void FASTSTABILIZER::create_fft_plots() {
 	connect(&proc_thread, &QThread::started, &animateTimer, &QTimer::stop);
 
 
-
 }
 
-void FASTSTABILIZER::updatefftplot() {
+void FASTSTABILIZER::update_fft_plot() {
 
 	ui.plot->graph(0)->setData(freqs, proc_thread.LPfftx);
 	ui.plot->axisRect(0)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
@@ -169,6 +210,23 @@ void FASTSTABILIZER::updatefftplot() {
 
 }
 
+void FASTSTABILIZER::update_tf_plot() {
+
+	QVector<double> time(window_2);
+	std::iota(time.begin(), time.end(), 0);
+
+	
+	QVector<double> tf_input_d(proc_thread.tf_input_arr.begin(), proc_thread.tf_input_arr.end());
+	
+	ui.tf_plot->graph(0)->setData(time, tf_input_d);
+	ui.tf_plot->graph(1)->setData(time, proc_thread.centroidx_d);
+
+	ui.tf_plot->graph(2)->setData(time, tf_input_d);
+	ui.tf_plot->graph(3)->setData(time, proc_thread.centroidy_d);
+
+
+}
+
 void FASTSTABILIZER::on_horizontalZoomButton_toggled(bool j) {
 
 	if (j) {
@@ -176,6 +234,12 @@ void FASTSTABILIZER::on_horizontalZoomButton_toggled(bool j) {
 			ui.plot->axisRect(0)->setRangeZoomAxes(ui.plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
 			ui.plot->axisRect(1)->setRangeDragAxes(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
 			ui.plot->axisRect(1)->setRangeZoomAxes(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
+			ui.tf_plot->axisRect(0)->setRangeDragAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+			ui.tf_plot->axisRect(0)->setRangeZoomAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+			ui.tf_plot->axisRect(1)->setRangeDragAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+			ui.tf_plot->axisRect(1)->setRangeZoomAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+
+
 	}
 	else {
 			ui.plot->axisRect(0)->setRangeDragAxes(NULL, ui.plot->axisRect(0)->axis(QCPAxis::atLeft));
@@ -183,6 +247,20 @@ void FASTSTABILIZER::on_horizontalZoomButton_toggled(bool j) {
 			ui.plot->axisRect(1)->setRangeDragAxes(NULL, ui.plot->axisRect(1)->axis(QCPAxis::atLeft));
 			ui.plot->axisRect(1)->setRangeZoomAxes(NULL, ui.plot->axisRect(1)->axis(QCPAxis::atLeft));
 
+			QList<QCPAxis*> axes;
+			axes.append(ui.tf_plot->axisRect(0)->axis(QCPAxis::atLeft));
+			axes.append(ui.tf_plot->axisRect(0)->axis(QCPAxis::atRight));
+			QList<QCPAxis*> empty;
+			empty.append(NULL);
+			ui.tf_plot->axisRect(0)->setRangeDragAxes(empty, axes);
+			ui.tf_plot->axisRect(0)->setRangeZoomAxes(empty, axes);
+
+			axes.clear();
+			axes.append(ui.tf_plot->axisRect(1)->axis(QCPAxis::atLeft));
+			axes.append(ui.tf_plot->axisRect(1)->axis(QCPAxis::atRight));
+
+			ui.tf_plot->axisRect(1)->setRangeDragAxes(empty, axes);
+			ui.tf_plot->axisRect(1)->setRangeZoomAxes(empty, axes);
 		}
 	
 }

@@ -44,8 +44,10 @@
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
     <QtInstall>5.14.2</QtInstall>
-    <QtModules>concurrent;core;gui;printsupport;serialport;widgets</QtModules>
+    <QtModules>concurrent;core;gui;printsupport;qml;serialport;widgets</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
+    <QtQMLDebugEnable>false</QtQMLDebugEnable>
+    <QtHeaderSearchPath>C:\Qt\5.14.2\msvc2017_64\include\QtConcurrent;C:\Qt\5.14.2\msvc2017_64\include\QtSerialPort</QtHeaderSearchPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'" Label="QtSettings">
     <QtInstall>5.14.2</QtInstall>

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>557</width>
-    <height>509</height>
+    <width>556</width>
+    <height>505</height>
    </rect>
   </property>
   <property name="styleSheet">
@@ -37,8 +37,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>419</width>
-         <height>467</height>
+         <width>418</width>
+         <height>463</height>
         </rect>
        </property>
        <layout class="QGridLayout" name="gridLayout">
@@ -79,7 +79,7 @@ border-width: 1px;
 }
 
 QPushButton::pressed{
-background-color: rgba(200, 100, 0,50);
+background-color: rgba(200, 100, 0,20);
 border-style: inset;
 
 
@@ -285,7 +285,7 @@ border-width: 1px;
 }
 
 QPushButton::pressed{
-background-color: rgba(200, 100, 0,50);
+background-color: rgba(200, 100, 0,20);
 border-style: inset;
 
 
@@ -318,7 +318,7 @@ border-width: 1px;
 }
 
 QPushButton::pressed{
-background-color: rgba(200, 100, 0,50);
+background-color: rgba(200, 100, 0,20);
 border-style: inset;
 
 
@@ -351,7 +351,7 @@ border-width: 1px;
 }
 
 QPushButton::pressed{
-background-color: rgba(200, 100, 0,50);
+background-color: rgba(200, 100, 0,20);
 border-style: inset;
 
 
