@@ -34,6 +34,7 @@ struct dir_cell {
 			N[j] = n[j];
 			Chi[j].mag = 0;
 			Chi[j].phase = 0;
+
 		}
 	}
 };
@@ -50,7 +51,6 @@ float* xsignal;
 float* ysignal;
 int xDACmax = 0;
 uint16_t yDACmax = 0;
-uint16_t* tf_input_arr;
 
 #ifdef _DEBUG_
 float sine[2000];
@@ -194,10 +194,14 @@ void stabilize() {
 
 void learn_tf() {
 	
-	tf_input_arr = new uint16_t[window_2];
+	uint16_t* tf_input_arr = new uint16_t[window_2]();
 
 	tf_input(tf_input_arr,yDACmax);
 
+
+	Serial.write((byte)CONTINUE);
+	
+	
 	i = 0;
 
 	while (i < window_2) {
@@ -254,7 +258,7 @@ void find_range() {
 				break;
 			}
 			else {
-				analogWriteDAC0(curry);
+				analogWriteDAC1(curry);
 				curry += 5;
 
 				if (curry >= 4095) {
@@ -267,33 +271,25 @@ void find_range() {
 				Serial.write((byte)CONTINUE);
 			}
 		}
-
 	}
-
 
 	taper_down();
 }
 
 void taper_down() {
 
-
 	delete xsignal;
 	delete ysignal;
 
-	int tapering_val = adc->adc0->analogRead(23);
+	int tapering_val_y = adc->adc0->analogRead(A9);
+	int tapering_val_x = adc->adc1->analogRead(A3);
 
-	while (tapering_val > 0) {
-		analogWriteDAC0(--tapering_val);
+	while (tapering_val_y > 0) {
+		analogWriteDAC1(--tapering_val_y);
 		delayMicroseconds(100);
 	}
 	postsetup();
 }
 
-static void ramp_up(int x) {
-	i = 0;
-	while (i < x) {
-		analogWriteDAC0(++x);
-		delayMicroseconds(100);
-	}
-}
+
 

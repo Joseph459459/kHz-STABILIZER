@@ -1,7 +1,9 @@
 #include "FASTSTABILIZER.h"
-//#include "nlopt.hpp"
+#include "nlopt.hpp"
 #include "camview.h"
+#include <armadillo>
 
+using namespace arma;
 
 processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
 	: QThread(parent), camera(CTlFactory::GetInstance().CreateDevice(c))
@@ -10,7 +12,7 @@ processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
 
 	CDeviceInfo info;
 	info.SetDeviceClass(Camera_t::DeviceClass());
-
+	
 
 }
 
@@ -373,6 +375,20 @@ void processing_thread::find_actuator_range() {
 	emit finished_analysis();
 }
 
+double tf_model_error(const std::vector<double >& coeffs, std::vector<double>& grad, void* f_data) {
+
+	processing_thread* proc = (processing_thread*)f_data;
+	double sumsq = 0;
+
+	for (int i = 2; i < window_2; ++i) {
+
+		sumsq += (proc->centroidy_d[i] + coeffs[0] * proc->centroidy_d[i - 1] + coeffs[1] * proc->centroidy_d[i - 2]) - 
+			(coeffs[2]*proc->tf_input_arr[i-1] + coeffs[3]*proc->tf_input_arr[i-2]);
+	}
+
+	return sumsq;
+}
+
 void processing_thread::learn_transfer_function() {
 
 	emit write_to_log(QString("Finding Pixel/DAC Transfer Function..."));
@@ -380,7 +396,7 @@ void processing_thread::learn_transfer_function() {
 	adjust_framerate();
 
 	if (camera.ResultingFrameRateAbs.GetValue() < 1000) {
-		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
+		emit write_to_log(QString("Camera cannot acquire at 1 kHz") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
 	}
 	else {
 
@@ -429,7 +445,7 @@ void processing_thread::learn_transfer_function() {
 #pragma endregion
 
 		tf_input_arr.resize(window_2);
-
+		
 		tf_input(tf_input_arr.data(), yDACmax);
 
 		GrabResultPtr_t ptr;
@@ -440,6 +456,16 @@ void processing_thread::learn_transfer_function() {
 			teensy.close();
 			emit finished_analysis();
 			return;
+		}
+
+		if (!teensy.waitForReadyRead(1000)) {
+			emit write_to_log(QString("Synchronization error: could not read"));
+			teensy.close();
+			emit finished_analysis();
+			return;
+		}
+		else {
+			teensy.clear();
 		}
 
 		int missed = 0;
@@ -453,8 +479,8 @@ void processing_thread::learn_transfer_function() {
 				
 				std::array<float,2> out = centroid(ptr, threshold);
 				
-				centroidx_d[i] = out[0];
-				centroidy_d[i] = out[1];
+				centroidx_d[i] = ptr->GetWidth() - out[0];
+				centroidy_d[i] = ptr->GetHeight() - out[1];
 				
 				teensy.write(QByteArray(1, SYNC_FLAG));
 				if (!teensy.waitForBytesWritten(100)) {
@@ -475,10 +501,11 @@ void processing_thread::learn_transfer_function() {
 		camera.StopGrabbing();
 		teensy.close();
 
+		
 		emit updateprogress(window_2);
 
 		emit update_tf_plot();
-		
+
 		emit finished_analysis();
 
 

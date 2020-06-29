@@ -29,13 +29,14 @@ public slots:
 	void on_zoomInButton_clicked();
 	void on_zoomOutButton_clicked();
 	void on_noiseSpectrumButton_clicked();
-	void on_exposureBox_valueChanged(int i);
+	void on_exposureBox_valueChanged(int);
 	void on_upButton_clicked();
 	void on_downButton_clicked();
 	void on_leftButton_clicked();
 	void on_rightButton_clicked();
 	void on_resetButton_clicked();
 	void finished_analysis();
+	void on_triggerButton_toggled(bool);
 
 signals:
 	void write_to_log(QString q);

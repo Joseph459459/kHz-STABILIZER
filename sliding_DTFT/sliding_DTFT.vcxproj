@@ -15,6 +15,7 @@
     <RootNamespace>
     </RootNamespace>
     <ProjectName>sliding_DTFT</ProjectName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -89,6 +90,7 @@
       <ForcedIncludeFiles>$(ProjectDir)__vm\.sliding_DTFT.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <IgnoreStandardIncludePath>true</IgnoreStandardIncludePath>
       <PreprocessorDefinitions>__HARDWARE_mk66fx1m0__;__HARDWARE_MK66FX1M0__;_VMDEBUG=1;__MK66FX1M0__;TEENSYDUINO=150;ARDUINO=108010;ARDUINO_TEENSY36;F_CPU=180000000;USB_SERIAL;LAYOUT_US_ENGLISH;__cplusplus=201103L;_VMICRO_INTELLISENSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -114,7 +116,7 @@
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties config.Debug.customdebug_teensy36_debugger_type="universal" />
+      <UserProperties config.Debug.customdebug_teensy36_debugger_type="none" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>

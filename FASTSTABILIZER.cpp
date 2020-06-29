@@ -102,6 +102,11 @@ void FASTSTABILIZER::create_tf_plots() {
 	ui.tf_plot->addGraph(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atLeft));
 	ui.tf_plot->addGraph(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atRight));
 
+	ui.tf_plot->graph(0)->setPen(QPen(QColor(250, 130, 0, 200)));
+	ui.tf_plot->graph(1)->setPen(QPen(QColor(5, 0, 255, 200)));
+	ui.tf_plot->graph(2)->setPen(QPen(QColor(250, 130, 0, 200)));
+	ui.tf_plot->graph(3)->setPen(QPen(QColor(5, 0, 255, 200)));
+
 	tfaxes_x->axis(QCPAxis::atLeft)->setLabel("DAC Output");
 	tfaxes_x->axis(QCPAxis::atRight)->setLabel("Centroid X");
 
@@ -143,7 +148,6 @@ void FASTSTABILIZER::create_fft_plots() {
 	ui.plot->graph(1)->setPen(QPen(QColor(5, 0, 255, 200)));
 
 	ui.plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables);
-
 
 	ui.plot->graph(0)->setSelectable(QCP::stSingleData);
 
@@ -215,15 +219,24 @@ void FASTSTABILIZER::update_tf_plot() {
 	QVector<double> time(window_2);
 	std::iota(time.begin(), time.end(), 0);
 
-	
-	QVector<double> tf_input_d(proc_thread.tf_input_arr.begin(), proc_thread.tf_input_arr.end());
-	
-	ui.tf_plot->graph(0)->setData(time, tf_input_d);
+	proc_thread.centroidx_d.pop_front();
+	proc_thread.centroidy_d.pop_front();
+
+	ui.tf_plot->graph(0)->setData(time, proc_thread.tf_input_arr);
 	ui.tf_plot->graph(1)->setData(time, proc_thread.centroidx_d);
 
-	ui.tf_plot->graph(2)->setData(time, tf_input_d);
+	ui.tf_plot->graph(2)->setData(time, proc_thread.tf_input_arr);
 	ui.tf_plot->graph(3)->setData(time, proc_thread.centroidy_d);
 
+	ui.tf_plot->rescaleAxes();
+	ui.tf_plot->replot();
+
+	for (int i = 0; i < window_2 - 1; ++i) {
+
+		qDebug() << proc_thread.tf_input_arr[i];
+		qDebug() << proc_thread.centroidy_d[i];
+
+	}
 
 }
 
@@ -234,10 +247,11 @@ void FASTSTABILIZER::on_horizontalZoomButton_toggled(bool j) {
 			ui.plot->axisRect(0)->setRangeZoomAxes(ui.plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
 			ui.plot->axisRect(1)->setRangeDragAxes(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
 			ui.plot->axisRect(1)->setRangeZoomAxes(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
+			
 			ui.tf_plot->axisRect(0)->setRangeDragAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
 			ui.tf_plot->axisRect(0)->setRangeZoomAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
-			ui.tf_plot->axisRect(1)->setRangeDragAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
-			ui.tf_plot->axisRect(1)->setRangeZoomAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+			ui.tf_plot->axisRect(1)->setRangeDragAxes(ui.tf_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
+			ui.tf_plot->axisRect(1)->setRangeZoomAxes(ui.tf_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
 
 
 	}
@@ -247,11 +261,12 @@ void FASTSTABILIZER::on_horizontalZoomButton_toggled(bool j) {
 			ui.plot->axisRect(1)->setRangeDragAxes(NULL, ui.plot->axisRect(1)->axis(QCPAxis::atLeft));
 			ui.plot->axisRect(1)->setRangeZoomAxes(NULL, ui.plot->axisRect(1)->axis(QCPAxis::atLeft));
 
+			QList<QCPAxis*> empty;
+			empty.append(NULL);
 			QList<QCPAxis*> axes;
 			axes.append(ui.tf_plot->axisRect(0)->axis(QCPAxis::atLeft));
 			axes.append(ui.tf_plot->axisRect(0)->axis(QCPAxis::atRight));
-			QList<QCPAxis*> empty;
-			empty.append(NULL);
+
 			ui.tf_plot->axisRect(0)->setRangeDragAxes(empty, axes);
 			ui.tf_plot->axisRect(0)->setRangeZoomAxes(empty, axes);
 

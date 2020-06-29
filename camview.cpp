@@ -27,8 +27,6 @@ camview::camview(processing_thread* thread, QWidget* parent)
 	ui.exposureBox->setValue(proc_thread->camera.ExposureTimeAbs.GetValue());
 
 	proc_thread->camera.AcquisitionFrameRateEnable.SetValue(true);
-
-
 }
 
 camview::~camview()
@@ -297,6 +295,26 @@ void camview::on_leftButton_clicked() {
 	if (proc_thread->camera.OffsetX() - 4 > 0)
 		proc_thread->camera.OffsetX.SetValue(proc_thread->camera.OffsetX() - 4);
 
+}
+
+void camview::on_triggerButton_toggled(bool j) {
+
+	safe_thread_close();
+
+	if (j) {
+		proc_thread->camera.AcquisitionFrameRateEnable.SetValue(false);
+		proc_thread->camera.TriggerMode.SetValue(TriggerMode_On);
+		proc_thread->camera.TriggerSource.SetValue(TriggerSourceEnums::TriggerSource_Line1);
+		proc_thread->camera.TriggerSelector.SetValue(TriggerSelector_FrameStart);
+		proc_thread->camera.TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+	}
+	else {
+		proc_thread->camera.TriggerMode.SetValue(TriggerMode_Off);
+		proc_thread->camera.AcquisitionFrameRateEnable.SetValue(true);
+		proc_thread->adjust_framerate();
+	}
+
+	proc_thread->start();
 }
 
 inline void camview::safe_thread_close() {

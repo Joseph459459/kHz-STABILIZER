@@ -33,7 +33,7 @@ public:
 	int threshold = 0;
 	uint16_t yDACmax;
 	uint16_t xDACmax;
-	QVector<uint16_t> tf_input_arr;
+	QVector<double> tf_input_arr;
 
 public slots:
 	//void stabilize();
