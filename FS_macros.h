@@ -18,45 +18,121 @@
 template <typename T>
 inline void tf_input(T* tf_input_arr, uint16_t yDACmax) {
 
+	tf_input_turnaroundspeed(tf_input_arr, yDACmax);
+
+}
+
+template <typename T>
+inline void tf_input_turnaroundspeed(T* tf_input_arr, uint16_t yDACmax) {
+	int i, j;
 	int idx = 0;
-	int i;
-
-	for (int j = 5; j < 31; j += 5) {
-
-		double slope = 2048.0 / 30;
-
-		for (i = 0; i < 30; ++i) {
-			tf_input_arr[idx + i] = round(slope * i);
-		}
-		idx += 30;
-
-
-		for (i = 0; i < j; ++i) {
-			tf_input_arr[idx + i] = round(2048 - slope * i);
-		}
-		idx += j;
-
-
-		for (i = 0; i < j + 30; ++i) {
-			tf_input_arr[idx + i] = round(2048 - slope * j + slope * i);
-		}
-		idx += j + 30;
-
-		for (i = 0; i < 60; ++i) {
-			tf_input_arr[idx + i] = round(4095 - slope * i);
-
-		}
-
-		idx += 60;
-
+	double slope[10];
+	for (i = 1; i < 11; ++i) {
+		slope[i-1] = 2048.0 / 60 * i;
 	}
 
+	for (i = 0; i < round(2048 / slope[0]); ++i) {
+
+		tf_input_arr[idx + i] = round(slope[0] * i);
+	}
+	idx += round(2048 / slope[0]);
+
+	for (i = 0; i < round(2048 / slope[0]); ++i) {
+
+		tf_input_arr[idx + i] = round(2048.0 - slope[0] * i);
+	}
+	idx += round(2048 / slope[0]);
+
+	for (j = 0; j < 10; ++j) {
+		
+		for (i = 0; i < round(2048 / slope[0]); ++i) {
+
+			tf_input_arr[idx + i] = round(slope[0] * i);
+		}
+
+		idx += round(2048 / slope[0]);
+
+		for (i = 0; i < round(2048 / slope[j]);++i) {
+
+			tf_input_arr[idx + i] = round(2048.0 - slope[j] * i);
+		}
+
+		idx += round(2048 / slope[j]);
+	}
 
 
 }
 
 template <typename T>
-inline void tf_input89(T* tf_input_arr, uint16_t yDACmax) {
+inline void tf_input_refandsinewaves(T* tf_input_arr, uint16_t yDACmax) {
+
+	int idx = 0;
+
+	for (int j = 0; j < 5; ++j) {
+		for (int i = 0; i < 22; ++i) {
+			tf_input_arr[idx + i] = round(4095.0 / 22  * i);
+			tf_input_arr[idx + i + 22] = round(4095 - 4095.0 / 22 * i);
+		}
+		idx += 44;
+	}
+
+	for (int i = 0; i < 4000; ++i) {
+		
+		tf_input_arr[idx + i] = round(2000.0 / 3 * (sin(2 * PI / 50 * i) + sin(2 * PI / 16.6 * i + 1) + sin(2 * PI / 20 * i - 2)) + 2048);
+	}
+
+	for (int i = 0; i < 100; ++i) {
+		tf_input_arr[idx + i] = round(tf_input_arr[idx + i] * i / 100);
+
+	}
+
+}
+
+template <typename T>
+inline void tf_input_littlejags(T* tf_input_arr, uint16_t yDACmax) {
+
+	int i = 0;
+	int idx = 0;
+
+	int turns[5] = { 2000,2500,3000,3500,4095 };
+	int amps[6] = { 250,500,750,1000,1500,2000 };
+	double slope = 2048 / 30;
+
+	for (int dest : turns) {
+
+		for (int amp : amps) {
+
+			for (i = 0; i < round(dest / slope); ++i) {
+				tf_input_arr[idx + i] = round(slope * i);
+			}
+
+			idx += i;
+
+			for (i = 0; i < round(amp / slope); ++i) {
+				tf_input_arr[idx + i] = round(dest - slope * i);
+			}
+			
+			idx += i;
+
+			for (i = 0; i < round((4095 - (dest - amp))/slope); ++i) {
+				tf_input_arr[idx + i] = round(dest - amp + slope * i);
+			}
+			
+			idx += i;
+
+			for (i = 0; i < round(4095 / slope); ++i) {
+				tf_input_arr[idx + i] = round(4095 - slope * i);
+
+			}
+
+			idx += i;
+
+		}
+	}
+}
+
+template <typename T>
+inline void tf_input_littlejagsgoingup(T* tf_input_arr, uint16_t yDACmax) {
 
 	int len = 100;
 	int ampl = 400;
@@ -79,7 +155,7 @@ inline void tf_input89(T* tf_input_arr, uint16_t yDACmax) {
 }
 
 template <typename T>
-inline void tf_input7(T* tf_input_arr, uint16_t yDACmax) {
+inline void tf_input_fullamplitude_timestretching_once(T* tf_input_arr, uint16_t yDACmax) {
 
 #define numpeaks 20
 
@@ -111,7 +187,7 @@ inline void tf_input7(T* tf_input_arr, uint16_t yDACmax) {
 }
 
 template <typename T>
-inline void tf_input55(T* tf_input_arr, uint16_t yDACmax) {
+inline void tf_input_lowerreferencecurves(T* tf_input_arr, uint16_t yDACmax) {
 
 	int i, j;
 	const int len = 80;
@@ -135,14 +211,16 @@ inline void tf_input55(T* tf_input_arr, uint16_t yDACmax) {
 }
 
 template <typename T>
-inline void tf_input5(T* tf_input_arr, uint16_t yDACmax) {
-	
+inline void tf_input_refcurves_halfwaycurves(T* tf_input_arr, uint16_t yDACmax) {
+
+#define numpeaks 6
+
 	double amps[15] = { 0 };
 	for (int i = 1; i < numpeaks+1; ++i) {
 		amps[i - 1] = i * 4095 / (double) numpeaks;
 	}
 
-	int len = 80;
+	int len = 40;
 
 	for (int j = 0; j < numpeaks; ++j) {
 		
@@ -219,7 +297,7 @@ inline void tf_input5(T* tf_input_arr, uint16_t yDACmax) {
 }
 
 template <typename T>
-inline void tf_input81(T* tf_input_arr, uint16_t yDACmax) {
+inline void tf_input_halfwaycurves(T* tf_input_arr, uint16_t yDACmax) {
 
 	int length = 80;
 	int idx = 0;
@@ -250,7 +328,7 @@ inline void tf_input81(T* tf_input_arr, uint16_t yDACmax) {
 }
 
 template <typename T>
-inline void tf_input3(T* tf_input_arr, uint16_t yDACmax) {
+inline void tf_input_allrefcurves_timestretching(T* tf_input_arr, uint16_t yDACmax) {
 
 	double base_slope = 4096 / 10;
 
@@ -296,9 +374,8 @@ inline void tf_input3(T* tf_input_arr, uint16_t yDACmax) {
 	}
 }
 
-
 template <typename T>
-inline void tf_input2(T* tf_input_arr, uint16_t yDACmax) {
+inline void tf_input_singlejaggedtimestretch_lowerreferences(T* tf_input_arr, uint16_t yDACmax) {
 
 	int freqs[10] = {18,28,38,48,58,68,78,88,98,108};
 	int idx = 0;

@@ -12,8 +12,6 @@ processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
 
 	CDeviceInfo info;
 	info.SetDeviceClass(Camera_t::DeviceClass());
-	
-
 }
 
 processing_thread::~processing_thread()
