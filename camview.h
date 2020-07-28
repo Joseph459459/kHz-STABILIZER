@@ -1,10 +1,9 @@
 #pragma once
-
 #include <QDockWidget>
 #include "ui_camview.h"
 #include "imageviewer.h"
-#include "FASTSTABILIZER.h"
-
+#include "processing_thread.h"
+#include <qprogressdialog.h>
 
 class camview : public QDockWidget
 {
@@ -18,9 +17,10 @@ public:
 	processing_thread* proc_thread;
 	camview(processing_thread* thread, QWidget *parent = Q_NULLPTR);
 	~camview();
-	void safe_thread_close();
 
 public slots:
+
+	void safe_thread_close();
 	void updateimage(GrabResultPtr_t ptr);
 	void on_findCentroidButton_clicked();
 	void on_actuatorRangeButton_clicked();

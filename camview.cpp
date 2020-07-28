@@ -1,6 +1,4 @@
-#pragma once
 #include "camview.h"
-
 
 camview::camview(processing_thread* thread, QWidget* parent)
 	: QDockWidget(parent), proc_thread(thread),table_8(0)
@@ -27,6 +25,8 @@ camview::camview(processing_thread* thread, QWidget* parent)
 	ui.exposureBox->setValue(proc_thread->camera.ExposureTimeAbs.GetValue());
 
 	proc_thread->camera.AcquisitionFrameRateEnable.SetValue(true);
+
+	this->setAttribute(Qt::WA_DeleteOnClose);
 }
 
 camview::~camview()
@@ -230,9 +230,9 @@ void camview::finished_analysis()
 
 void camview::on_noiseSpectrumButton_clicked() {
 
-	safe_thread_close();
+	this->safe_thread_close();
 
-	progressbox = new QProgressDialog("Recording...", "Abort", 0, window, this);
+	progressbox = new QProgressDialog("Recording...", "Abort", 0, _window, this);
 	progressbox->setAutoClose(true);
 	progressbox->setAttribute(Qt::WA_DeleteOnClose);
 	connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
@@ -247,7 +247,7 @@ void camview::on_noiseSpectrumButton_clicked() {
 
 void camview::on_actuatorRangeButton_clicked() {
 	
-	safe_thread_close();
+	this->safe_thread_close();
 
 	proc_thread->plan = FIND_RANGE;
 
@@ -256,9 +256,9 @@ void camview::on_actuatorRangeButton_clicked() {
 
 void camview::on_transferFunctionButton_clicked() {
 
-	safe_thread_close();
+	this->safe_thread_close();
 
-	progressbox = new QProgressDialog("Recording...", "Abort", 0, window_2, this);
+	progressbox = new QProgressDialog("Recording...", "Abort", 0, tf_window, this);
 	progressbox->setAutoClose(true);
 	progressbox->setAttribute(Qt::WA_DeleteOnClose);
 	connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
@@ -276,17 +276,17 @@ void camview::on_exposureBox_valueChanged(int i) {
 }
 
 void camview::on_upButton_clicked() {
-	if (proc_thread->camera.OffsetY() - 4 > 0)
+	if (proc_thread->camera.OffsetY() - 4 > 0 )
 		proc_thread->camera.OffsetY.SetValue(proc_thread->camera.OffsetY() - 4);
 }
 
 void camview::on_downButton_clicked() {
-	if (proc_thread->camera.Height() + 4 < proc_thread->camera.HeightMax())
+	if (proc_thread->camera.OffsetY() + proc_thread->camera.Height() + 4 < proc_thread->camera.HeightMax())
 		proc_thread->camera.OffsetY.SetValue(proc_thread->camera.OffsetY() + 4);
 }
 
 void camview::on_rightButton_clicked() {
-	if (proc_thread->camera.Width() + 4 < proc_thread->camera.WidthMax())
+	if (proc_thread->camera.OffsetX() + proc_thread->camera.Width() + 4 < proc_thread->camera.WidthMax())
 		proc_thread->camera.OffsetX.SetValue(proc_thread->camera.OffsetX() + 4);
 
 }
@@ -299,7 +299,7 @@ void camview::on_leftButton_clicked() {
 
 void camview::on_triggerButton_toggled(bool j) {
 
-	safe_thread_close();
+	this->safe_thread_close();
 
 	if (j) {
 		proc_thread->camera.AcquisitionFrameRateEnable.SetValue(false);
@@ -317,7 +317,7 @@ void camview::on_triggerButton_toggled(bool j) {
 	proc_thread->start();
 }
 
-inline void camview::safe_thread_close() {
+void camview::safe_thread_close() {
 
 	proc_thread->blockSignals(true);
 	proc_thread->acquiring = false;

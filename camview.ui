@@ -116,6 +116,9 @@ border-style: inset;
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="maximum">
+         <number>255</number>
+        </property>
        </widget>
       </item>
       <item>

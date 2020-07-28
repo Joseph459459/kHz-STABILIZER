@@ -2,6 +2,8 @@
 #include <numeric>
 #include <algorithm>
 #include <ADC.h>
+#include <vector>
+
 #include "FS_macros.h"
 
 //#define _DEBUG_ON
@@ -16,15 +18,16 @@ struct complex {
 	float mag;
 	float phase;
 };
-struct dir_cell {
+struct axes_cell {
 
+	float* signal;
 	complex Chi[num_tones];
 	float prev[num_tones] = { 0 };
 	float w[num_tones];
 	float N[num_tones];
 	int prev_idx[num_tones] = { 0 };
 	int maxN;
-
+	int DAC_cmds[3] = { 0 };
 
 	void assign(float tones[num_tones], float n[num_tones]) {
 
@@ -39,16 +42,16 @@ struct dir_cell {
 	}
 };
 
-dir_cell x_;
-dir_cell y_;
+std::vector<axes_cell> axes(2);
 
 int i, j;
 float differential[2] = { 0 , 0 };
 float in[2] = { 0 , 0 };
+float tf_params[2] = { 0 , 0 };
 int timeout = 0;
 unsigned int n = 0;
-float* xsignal;
-float* ysignal;
+float drive_freqs[3];
+
 int xDACmax = 0;
 uint16_t yDACmax = 0;
 
@@ -77,13 +80,13 @@ void postsetup() {
 
 	float xtones[3] = { 20, 40, 60 };
 	float xN[3] = { 60, 60, 60 };
-	x_.assign(xtones, xN);
+	ax.assign(xtones, xN);
 
 	for (int k = 0; k < 2000; ++k) {
 		sine[k] = sinf(2 * PI * 60 / sampling_freq * k);
 	}
-	x_.maxN = *std::max_element(xN, xN + num_tones);
-	xsignal = new float[x_.maxN]();
+	ax.maxN = *std::maaxelement(xN, xN + num_tones);
+	ax.signal = new float[ax.maxN]();
 
 
 #else 
@@ -112,12 +115,17 @@ void postsetup() {
 			Serial.readBytes((char*)&ytones[i], 4);
 			Serial.readBytes((char*)&yN[i], 4);
 		}
-		x_.assign(xtones, xN);
-		x_.maxN = *std::max_element(xN, xN + num_tones);
-		xsignal = new float[x_.maxN]();
-		y_.assign(ytones, yN);
-		y_.maxN = *std::max_element(yN, yN + num_tones);
-		ysignal = new float[y_.maxN]();
+
+		Serial.readBytes((char*) &tf_params, 8);
+
+
+		axes[0].assign(xtones, xN);
+		axes[0].maxN = *std::max_element(xN, xN + num_tones);
+		axes[0].signal = new float[axes[0].maxN]();
+		axes[1].assign(ytones, yN);
+		axes[1].maxN = *std::max_element(yN, yN + num_tones);
+		axes[1].signal = new float[axes[1].maxN]();
+
 		stabilize();
 
 
@@ -133,15 +141,18 @@ void loop() {
 
 }
 
+int ax_idx = 0;
+
 void stabilize() {
 
-
 	while (true) {
+
 		while (!Serial.available()) {
 			if (++timeout > 20000)
 				taper_down();
 		};
 		timeout = 0;
+
 		if (Serial.read() != SYNC_FLAG) {
 			Serial.clear();
 		}
@@ -149,62 +160,83 @@ void stabilize() {
 
 			Serial.readBytes((char*)in, 8);
 
-			for (j = 0; j < num_tones; ++j) {
+			for (axes_cell ax : axes) {
 
-				x_.Chi[j].mag =
-					2 / x_.N[j] * sqrtf(sq(x_.Chi[j].mag) +
-						x_.Chi[j].mag * (2 * (cosf(x_.w[j] * x_.N[j] + x_.Chi[j].phase) * in[0] -
-							cosf(x_.Chi[j].phase) * x_.prev[j])) + sq(x_.prev[j]) + sq(in[0]) -
-						2 * in[0] * x_.prev[j] * cosf(x_.w[j] * x_.N[j]));
+				for (j = 0; j < num_tones; ++j) {
 
-				x_.Chi[j].phase = atan2f(
-					x_.Chi[j].mag * sinf(x_.w[j] + x_.Chi[j].phase) -
-					x_.prev[j] * sinf(x_.w[j]) - in[0] * sinf(x_.w[j] * (x_.N[j] - 1)),
+					ax.Chi[j].mag =
+						2 / ax.N[j] * sqrtf(sq(ax.Chi[j].mag) +
+							ax.Chi[j].mag * (2 * (cosf(ax.w[j] * ax.N[j] + ax.Chi[j].phase) * in[ax_idx] -
+								cosf(ax.Chi[j].phase) * ax.prev[j])) + sq(ax.prev[j]) + sq(in[ax_idx]) -
+							2 * in[ax_idx] * ax.prev[j] * cosf(ax.w[j] * ax.N[j]));
 
-					x_.Chi[j].mag * cosf(x_.w[j] + x_.Chi[j].phase) -
-					x_.prev[j] * cosf(x_.w[j]) + in[0] * cosf(x_.w[j] * (x_.N[j] - 1)));
+					ax.Chi[j].phase = atan2f(
+						ax.Chi[j].mag * sinf(ax.w[j] + ax.Chi[j].phase) -
+						ax.prev[j] * sinf(ax.w[j]) - in[ax_idx] * sinf(ax.w[j] * (ax.N[j] - 1)),
 
-				differential[0] = differential[0] +
+						ax.Chi[j].mag * cosf(ax.w[j] + ax.Chi[j].phase) -
+						ax.prev[j] * cosf(ax.w[j]) + in[ax_idx] * cosf(ax.w[j] * (ax.N[j] - 1)));
 
-					x_.Chi[j].mag * cosf(x_.w[j] * x_.N[j] + x_.Chi[j].phase) -
-					x_.Chi[j].mag * cosf(x_.w[j] * (x_.N[j] - 1) + x_.Chi[j].phase);
+					differential[ax_idx] = differential[ax_idx] +
 
-			}
+						ax.Chi[j].mag * cosf(ax.w[j] * ax.N[j] + ax.Chi[j].phase) -
+						ax.Chi[j].mag * cosf(ax.w[j] * (ax.N[j] - 1) + ax.Chi[j].phase);
 
-			analogWriteDAC0(0);
-			analogWriteDAC1(0);
-
-			differential[0] = 0;
-
-			xsignal[n % x_.maxN] = in[0];
-			++n;
-
-			for (int i = 0; i < num_tones; ++i) {
-
-				if (n >= x_.N[j]) {
-					x_.prev[j] = xsignal[x_.prev_idx[j]];
-					x_.prev_idx[j] = (x_.prev_idx[j] + 1) % x_.maxN;
 				}
 
+				ax.DAC_cmds[0] = round(1 / tf_params[ax_idx] * ((in[ax_idx] + differential[ax_idx]) - 2 * ax.signal[n % ax.maxN - 1] + 2 * ax.signal[n % ax.maxN - 2])
+					+ 2 * ax.DAC_cmds[1] - ax.DAC_cmds[2]);
+			
+				ax_idx++;
 			}
 
+
+			analogWriteDAC0(axes[0].DAC_cmds[0]);
+
+			analogWriteDAC1(axes[1].DAC_cmds[0]);
+
+
+			ax_idx = 0;
+			for (axes_cell ax : axes) {
+				
+				differential[ax_idx] = 0;
+
+				ax.signal[n % ax.maxN] = in[ax_idx];
+				++n;
+
+				for (j = 0; j < num_tones; ++j) {
+
+					if (n >= ax.N[j]) {
+						ax.prev[j] = ax.signal[ax.prev_idx[j]];
+						ax.prev_idx[j] = (ax.prev_idx[j] + 1) % ax.maxN;
+					}
+
+				}
+
+				ax_idx++;
+			}
+
+			ax_idx = 0;
 		}
 	}
 }
 
 void learn_tf() {
 	
-	uint16_t* tf_input_arr = new uint16_t[window_2]();
 
-	tf_input(tf_input_arr,yDACmax);
+	Serial.readBytes((char*)drive_freqs, 24);
 
+	uint16_t* tf_input_arr = new uint16_t[tf_window]();
 
-	Serial.write((byte)CONTINUE);
-	
+	tf_input_(tf_input_arr,yDACmax,drive_freqs);
+
+	init_actuator();
+
+	Serial.write((char*) &drive_freqs,24);
 	
 	i = 0;
 
-	while (i < window_2) {
+	while (i < tf_window) {
 
 		// 0.144 micros per loop iteration
 		while (!Serial.available()) {
@@ -232,6 +264,8 @@ void learn_tf() {
 void find_range() {
 
 	digitalWriteFast(LED_BUILTIN, HIGH);
+
+	yDACmax = 0;
 
 	int currx = 0;
 	int curry = 0;
@@ -273,13 +307,15 @@ void find_range() {
 		}
 	}
 
+
+
 	taper_down();
 }
 
 void taper_down() {
 
-	delete xsignal;
-	delete ysignal;
+	delete axes[0].signal;
+	delete axes[1].signal;
 
 	int tapering_val_y = adc->adc0->analogRead(A9);
 	int tapering_val_x = adc->adc1->analogRead(A3);
@@ -291,5 +327,25 @@ void taper_down() {
 	postsetup();
 }
 
+void init_actuator() {
 
+	for (int i = 0; i < 20; ++i) {
+		analogWriteDAC0(4095.0 / 20 * i);
+		analogWriteDAC1(4095.0 / 20 * i);
+		delay(1);
+	}
+
+	for (int i = 0; i < 20; ++i) {
+		analogWriteDAC0(4095 - 4095.0 / 20 * i);
+		analogWriteDAC1(4095 - 4095.0 / 20 * i);
+		delay(1);
+	}
+
+	for (int i = 0; i < 10; ++i) {
+		analogWriteDAC0(2048.0 / 20 * i);
+		analogWriteDAC1(2048.0 / 20 * i);
+		delay(1);
+	}
+
+}
 

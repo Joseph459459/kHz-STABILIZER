@@ -1,5 +1,4 @@
 #include "FASTSTABILIZER.h"
-#include "camview.h"
 
 using namespace std::chrono;
 #define T_START t1 = high_resolution_clock::now();
@@ -38,6 +37,11 @@ void FASTSTABILIZER::on_stopButton_clicked() {
 }
 
 void FASTSTABILIZER::on_stabilizeButton_clicked() {
+	
+	CV->safe_thread_close();
+
+	CV->close();
+
 	proc_thread.plan = STABILIZE;
 	proc_thread.start(QThread::TimeCriticalPriority);
 }
@@ -51,12 +55,15 @@ void FASTSTABILIZER::error_handling(QString q) {
 
 void FASTSTABILIZER::on_learnButton_clicked() {
 
-	camview* CV = new camview(&proc_thread, this);
+	CV = new camview(&proc_thread, this);
 	connect(&proc_thread, &processing_thread::updateimagesize, CV, &camview::updateimagesize, Qt::BlockingQueuedConnection);
 	connect(CV, &camview::write_to_log, this, &FASTSTABILIZER::error_handling);
 	qRegisterMetaType<GrabResultPtr_t>("GrabResultPtr_t");
+	qRegisterMetaType<std::array<float,2>>("std::array<float,2>");
 	connect(&proc_thread, &processing_thread::sendImagePtr, CV, &camview::updateimage);
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, CV, &camview::updateimage,Qt::BlockingQueuedConnection);
+
+	qRegisterMetaType<QVector<double>>("QVector<double>");
 
 	connect(&proc_thread, &processing_thread::update_fft_plot, this, &FASTSTABILIZER::update_fft_plot);
 	connect(&proc_thread, &processing_thread::update_tf_plot, this, &FASTSTABILIZER::update_tf_plot);
@@ -97,15 +104,17 @@ void FASTSTABILIZER::create_tf_plots() {
 	tfaxes_y->setRangeZoomAxes(tfaxes_y->axis(QCPAxis::atBottom), NULL);
 	tfaxes_y->setRangeDragAxes(tfaxes_y->axis(QCPAxis::atBottom), NULL);
 
-	ui.tf_plot->addGraph(tfaxes_x->axis(QCPAxis::atBottom), tfaxes_x->axis(QCPAxis::atLeft));
-	ui.tf_plot->addGraph(tfaxes_x->axis(QCPAxis::atBottom), tfaxes_x->axis(QCPAxis::atRight));
-	ui.tf_plot->addGraph(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atLeft));
-	ui.tf_plot->addGraph(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atRight));
+	hysteresis_curves.resize(4);
 
-	ui.tf_plot->graph(0)->setPen(QPen(QColor(250, 130, 0, 200)));
-	ui.tf_plot->graph(1)->setPen(QPen(QColor(5, 0, 255, 200)));
-	ui.tf_plot->graph(2)->setPen(QPen(QColor(250, 130, 0, 200)));
-	ui.tf_plot->graph(3)->setPen(QPen(QColor(5, 0, 255, 200)));
+	hysteresis_curves[0] = new QCPCurve(tfaxes_x->axis(QCPAxis::atBottom), tfaxes_x->axis(QCPAxis::atLeft));
+	hysteresis_curves[1] = new QCPCurve(tfaxes_x->axis(QCPAxis::atBottom), tfaxes_x->axis(QCPAxis::atRight));
+	hysteresis_curves[2] = new QCPCurve(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atLeft));
+	hysteresis_curves[3] = new QCPCurve(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atRight));
+
+	hysteresis_curves[0]->setPen(QPen(QColor(250, 130, 0, 200)));
+	hysteresis_curves[1]->setPen(QPen(QColor(5, 0, 255, 200)));
+	hysteresis_curves[2]->setPen(QPen(QColor(250, 130, 0, 200)));
+	hysteresis_curves[3]->setPen(QPen(QColor(5, 0, 255, 200)));
 
 	tfaxes_x->axis(QCPAxis::atLeft)->setLabel("DAC Output");
 	tfaxes_x->axis(QCPAxis::atRight)->setLabel("Centroid X");
@@ -160,10 +169,10 @@ void FASTSTABILIZER::create_fft_plots() {
 
 	ui.plot->replot();
 
-	freqs.resize(window / 2.0);
+	freqs.resize(_window / 2.0);
 
-	for (int i = 0; i < window / 2; ++i) {
-		freqs[i] = (sampling_freq / 2.0) / (window / 2.0) * i;
+	for (int i = 0; i < _window / 2; ++i) {
+		freqs[i] = (sampling_freq / 2.0) / (_window / 2.0) * i;
 	}
 
 	for (int i = 0; i < 6; ++i) {
@@ -204,39 +213,47 @@ void FASTSTABILIZER::create_fft_plots() {
 
 void FASTSTABILIZER::update_fft_plot() {
 
-	ui.plot->graph(0)->setData(freqs, proc_thread.LPfftx);
+	ui.plot->graph(0)->setData(freqs, proc_thread.fftx);
 	ui.plot->axisRect(0)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
 	ui.plot->graph(0)->rescaleKeyAxis();
-	ui.plot->graph(1)->setData(freqs, proc_thread.LPffty);
+	ui.plot->graph(1)->setData(freqs, proc_thread.ffty);
 	ui.plot->axisRect(1)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
 	ui.plot->graph(1)->rescaleKeyAxis();
 	ui.plot->replot();
 
 }
 
-void FASTSTABILIZER::update_tf_plot() {
+void FASTSTABILIZER::update_tf_plot(std::array<float,2> tf_params, QVector<double> filteredx, QVector<double> filteredy) {
 
-	QVector<double> time(window_2);
-	std::iota(time.begin(), time.end(), 0);
+	hysteresis_curves[1]->setData(QVector<double>(proc_thread.tf_input_arr.begin() + 2 * section_width, proc_thread.tf_input_arr.end() - section_width / 2)
+	, filteredx);
 
-	proc_thread.centroidx_d.pop_front();
-	proc_thread.centroidy_d.pop_front();
+	hysteresis_curves[3]->setData(QVector<double>(proc_thread.tf_input_arr.begin() + 2 * section_width, proc_thread.tf_input_arr.end() - section_width / 2)
+	, filteredy);
 
-	ui.tf_plot->graph(0)->setData(time, proc_thread.tf_input_arr);
-	ui.tf_plot->graph(1)->setData(time, proc_thread.centroidx_d);
+	QVector<double> sim_centroidy(section_width / 2 - 2);
+	double* tf_input_ptr = proc_thread.tf_input_arr.data() + 2 * section_width;
 
-	ui.tf_plot->graph(2)->setData(time, proc_thread.tf_input_arr);
-	ui.tf_plot->graph(3)->setData(time, proc_thread.centroidy_d);
+	for (int i = 2; i < section_width / 2; ++i)
+		sim_centroidy[i - 2] = tf_params[0] * (tf_input_ptr[i] - 2 * tf_input_ptr[i - 1] + tf_input_ptr[i - 2]) + 2 * filteredy[i - 1] - filteredy[i - 2]
+		+ tf_params[1] * (tf_input_ptr[i] - tf_input_ptr[i - 1]);
+		
+		
+
+	hysteresis_curves[2]->setData(QVector<double>(proc_thread.tf_input_arr.begin() + 2 * section_width + 2, proc_thread.tf_input_arr.end() - section_width / 2)
+		, sim_centroidy);
+
 
 	ui.tf_plot->rescaleAxes();
 	ui.tf_plot->replot();
 
-	for (int i = 0; i < window_2 - 1; ++i) {
 
-		qDebug() << proc_thread.tf_input_arr[i];
-		qDebug() << proc_thread.centroidy_d[i];
+	//for (int i = 0; i < tf_window - 1; ++i) {
 
-	}
+	//	qDebug() << proc_thread.tf_input_arr[i];
+	//	qDebug() << proc_thread.centroidy_d[i];
+
+	//}
 
 }
 
@@ -440,7 +457,7 @@ void FASTSTABILIZER::animate(int i) {
 
 void FASTSTABILIZER::update_freq_label(int N, int graphdatapos) {
 
-	ui.plotLabel->setText("Freq: " + QString::number(graphdatapos / (window / 2.0) * 500) +
+	ui.plotLabel->setText("Freq: " + QString::number(graphdatapos / (_window / 2.0) * 500) +
 		" Hz | Window: " + QString::number(N) + " ms ");
 
 }

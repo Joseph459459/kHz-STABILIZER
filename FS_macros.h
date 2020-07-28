@@ -1,7 +1,8 @@
 #pragma once
+#include <stdio.h>
+
 #define num_tones 3
-#define window 5000
-#define window_2 1000
+#define _window 5000
 
 #define sampling_freq static_cast<float>(1000.0)
 #define PI static_cast<float>(3.14159265358979323846)
@@ -15,11 +16,115 @@
 #define STOP_FLAG 5
 #define CONTINUE 6
 
+#define n_taps 301
+#define section_width 1000
+#define tf_window 3 * section_width + 1
+
+
+
 template <typename T>
-inline void tf_input(T* tf_input_arr, uint16_t yDACmax) {
+inline void tf_input_(T* tf_input_arr, uint16_t yDACmax, float* freqs) {
 
-	tf_input_turnaroundspeed(tf_input_arr, yDACmax);
+	int idx = 0;
+	int i;
 
+	tf_input_arr[0] = 2048;
+
+	++idx;
+
+	for (i = 0; i < section_width; ++i) {
+		tf_input_arr[i + idx] = round(2048 + 1000 * sinf(2 * PI * freqs[0] / 1000 * i));
+	}
+	idx += section_width;
+	
+	for (i = 0; i < section_width; ++i) {
+		tf_input_arr[i + idx] = round(2048 + 1000 * sinf(2 * PI * freqs[1] / 1000 * i));
+	}
+	idx += section_width;
+
+	for (i = 0; i < section_width; ++i) {
+		tf_input_arr[i + idx] = round(2048 + 1000 * sinf(2 * PI * freqs[2] / 1000 * i));
+	}
+	idx += section_width;
+
+	
+
+}
+
+
+template <typename T>
+inline void tf_input_check_harmonics(T* tf_input_arr, uint16_t yDACmax) {
+
+	// A sharp 1, 58 Hz, D sharp 2, 77 Hz
+
+	int idx = 0;
+
+	for (int i = 0; i < 20; ++i) {
+		tf_input_arr[i] = round(2048.0 / 20 * i);
+	}
+	idx += 20;
+
+	for (int i = 0; i < 1000; ++i) {
+		tf_input_arr[i + idx] = round(2048.0 + 1000 * sinf(2 * PI / 14.286 * i));
+	}
+	idx += 1000;
+
+	for (int i = 0; i < 1000; ++i) {
+		tf_input_arr[i + idx] = round(2048.0 + 1000 * sinf(2 * PI / 20 * i));
+	}
+	idx += 1000;
+
+	for (int i = 0; i < 1000; ++i) {
+		tf_input_arr[i + idx] = round(2048.0 + 1000 * sinf(2 * PI / 50 * i));
+	}
+	idx += 1000;
+
+}
+
+template <typename T>
+inline void tf_input_sinewaves_separate(T* tf_input_arr, uint16_t yDACmax) {
+
+	int idx = 0;
+	for (int i = 0; i < 1000; ++i) {
+		tf_input_arr[i + idx] = 2000 * (-cosf(2 * PI / 25 * i) + 1);
+	}
+	idx += 1000;
+	for (int i = 0; i < 1000; ++i) {
+		tf_input_arr[i + idx] = 720 * (-cosf(2 * PI / 25 * i) + 1);
+	}
+	idx += 1000;
+	for (int i = 0; i < 1000; ++i) {
+		tf_input_arr[i + idx] = 2000 * (-cosf(2 * PI / 50 * i) + 1);
+	}
+	idx += 1000;
+	for (int i = 0; i < 1000; ++i) {
+		tf_input_arr[i + idx] = 2000 * ( (-cosf(2 * PI / 50 * i) + 1)/2 + (-cosf(2 * PI / 25 * i) + 1)/2 );
+	}
+
+	idx += 1000;
+	for (int i = 0; i < 1000; ++i) {
+		tf_input_arr[i + idx] = 2000 * ((-cosf(2 * PI / 50 * i) + 1) / 2 + (-cosf(2 * PI / 20 * i) + 1) / 2);
+	}
+
+}
+
+template <typename T>
+inline void tf_input_readfromtxt(T* tf_input_arr, uint16_t yDACmax) {
+
+	//for (int i = 0; i < 25; ++i) {
+	//	tf_input_arr[i] = 2048.0 / 25 * i;
+	//}
+
+	//FILE* fptr = fopen("C:/Users/Joseph/Documents/MATLAB/Examples/R2019a/matlab/STABILIZER/KHZYSET1.txt", "r");
+
+	//float t;
+	//for (int i = 25; i < tf_window; ++i) {
+	//	
+	//	fscanf(fptr, "%f", &t);
+	//	tf_input_arr[i] = (T)t;
+	//}
+
+	//fclose(fptr);
 }
 
 template <typename T>
@@ -59,33 +164,35 @@ inline void tf_input_turnaroundspeed(T* tf_input_arr, uint16_t yDACmax) {
 
 		idx += round(2048 / slope[j]);
 	}
-
-
 }
 
 template <typename T>
 inline void tf_input_refandsinewaves(T* tf_input_arr, uint16_t yDACmax) {
 
 	int idx = 0;
+	int amp[6] = { 0 };
 
-	for (int j = 0; j < 5; ++j) {
+	amp[0] = 4095;
+
+	for (int j = 1; j < 6; ++j) {
+		amp[j] = 4095.0 / 6 * (6 - j + 1);
+	}
+
+	for (int j = 0; j < 6; ++j) {
+
 		for (int i = 0; i < 22; ++i) {
-			tf_input_arr[idx + i] = round(4095.0 / 22  * i);
-			tf_input_arr[idx + i + 22] = round(4095 - 4095.0 / 22 * i);
+			tf_input_arr[idx + i] = round(amp[j] * (-cosf(2 * PI / 22 * i) + 1) / 2.0);		
 		}
-		idx += 44;
+		idx += 22;
 	}
 
-	for (int i = 0; i < 4000; ++i) {
-		
-		tf_input_arr[idx + i] = round(2000.0 / 3 * (sin(2 * PI / 50 * i) + sin(2 * PI / 16.6 * i + 1) + sin(2 * PI / 20 * i - 2)) + 2048);
+	for (int i = idx; i < 4000; ++i) {		
+		tf_input_arr[i] = round(2000.0 / 3 * (sin(2 * PI / 50 * i + i/4000) + sin(2 * PI / 16.6 * i + 1) + sin(2 * PI / 20 * i - 2)) + 2048);
 	}
 
-	for (int i = 0; i < 100; ++i) {
-		tf_input_arr[idx + i] = round(tf_input_arr[idx + i] * i / 100);
-
+	for (int i = idx; i < 100; ++i) {
+		tf_input_arr[i] = round(tf_input_arr[idx + i] * i / 100);
 	}
-
 }
 
 template <typename T>
@@ -220,7 +327,7 @@ inline void tf_input_refcurves_halfwaycurves(T* tf_input_arr, uint16_t yDACmax) 
 		amps[i - 1] = i * 4095 / (double) numpeaks;
 	}
 
-	int len = 40;
+	int len = 18;
 
 	for (int j = 0; j < numpeaks; ++j) {
 		
@@ -434,8 +541,13 @@ inline void tf_input_singlejaggedtimestretch_lowerreferences(T* tf_input_arr, ui
 
 	idx += freq;
 }
+}
 
 
+template <typename T>
+inline void tf_input(T* tf_input_arr, uint16_t yDACmax) {
 
+	//tf_input_refcurves_halfwaycurves(tf_input_arr, yDACmax);
+	tf_input_check_harmonics(tf_input_arr, yDACmax);
 
-	}
+}
