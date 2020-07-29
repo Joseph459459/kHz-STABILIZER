@@ -59,7 +59,7 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 	connect(&proc_thread, &processing_thread::updateimagesize, CV, &camview::updateimagesize, Qt::BlockingQueuedConnection);
 	connect(CV, &camview::write_to_log, this, &FASTSTABILIZER::error_handling);
 	qRegisterMetaType<GrabResultPtr_t>("GrabResultPtr_t");
-	qRegisterMetaType<std::array<float,2>>("std::array<float,2>");
+	qRegisterMetaType<std::array<double,3>>("std::array<double,3>");
 	connect(&proc_thread, &processing_thread::sendImagePtr, CV, &camview::updateimage);
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, CV, &camview::updateimage,Qt::BlockingQueuedConnection);
 
@@ -223,37 +223,46 @@ void FASTSTABILIZER::update_fft_plot() {
 
 }
 
-void FASTSTABILIZER::update_tf_plot(std::array<float,2> tf_params, QVector<double> filteredx, QVector<double> filteredy) {
+void FASTSTABILIZER::update_tf_plot(QVector<double> DAC_x, QVector<double> filtered_x, QVector<double> DAC_y, QVector<double> filtered_y) {
 
-	hysteresis_curves[1]->setData(QVector<double>(proc_thread.tf_input_arr.begin() + 2 * section_width, proc_thread.tf_input_arr.end() - section_width / 2)
-	, filteredx);
+	hysteresis_curves[1]->setData(DAC_x
+	, filtered_x);
 
-	hysteresis_curves[3]->setData(QVector<double>(proc_thread.tf_input_arr.begin() + 2 * section_width, proc_thread.tf_input_arr.end() - section_width / 2)
-	, filteredy);
+	hysteresis_curves[3]->setData(DAC_y
+	, filtered_y);
 
-	QVector<double> sim_centroidy(section_width / 2 - 2);
-	double* tf_input_ptr = proc_thread.tf_input_arr.data() + 2 * section_width;
-
-	for (int i = 2; i < section_width / 2; ++i)
-		sim_centroidy[i - 2] = tf_params[0] * (tf_input_ptr[i] - 2 * tf_input_ptr[i - 1] + tf_input_ptr[i - 2]) + 2 * filteredy[i - 1] - filteredy[i - 2]
-		+ tf_params[1] * (tf_input_ptr[i] - tf_input_ptr[i - 1]);
+	QVector<double> sim_centroid_y(filtered_y.size() - 2);
+	QVector<double> sim_centroid_x(filtered_y.size() - 2);
+	
+	for (int i = 2; i < filtered_y.size(); ++i) {
 		
+		sim_centroid_y[i - 2] = proc_thread.sol[0] * (DAC_y[i] - 2 * DAC_y[i - 1] + DAC_y[i - 2]) + 2 * filtered_y[i - 1] - filtered_y[i - 2];
+
+		for (int j = 0; j < 4; ++j)
+			sim_centroid_y[i - 2] -= proc_thread.fit_params[0][j] * std::pow(DAC_y[i] - DAC_y[i - 1], j);
+
+
+		sim_centroid_x[i - 2] = proc_thread.sol[1] * (DAC_x[i] - 2 * DAC_x[i - 1] + DAC_x[i - 2]) + 2 * filtered_x[i - 1] - filtered_x[i - 2];
+		
+		for (int j = 1; j < 4; ++j)
+			sim_centroid_x[i - 2] -= proc_thread.fit_params[1][j] * std::pow(DAC_x[i] - DAC_x[i - 1], j);
 		
 
-	hysteresis_curves[2]->setData(QVector<double>(proc_thread.tf_input_arr.begin() + 2 * section_width + 2, proc_thread.tf_input_arr.end() - section_width / 2)
-		, sim_centroidy);
+	}
+
+	DAC_y.erase(DAC_y.begin(), DAC_y.begin() + 2);
+	DAC_x.erase(DAC_x.begin(), DAC_x.begin() + 2);
+
+
+	hysteresis_curves[0]->setData(DAC_x
+		, sim_centroid_x);
+
+	hysteresis_curves[2]->setData( DAC_y
+		, sim_centroid_y);
 
 
 	ui.tf_plot->rescaleAxes();
 	ui.tf_plot->replot();
-
-
-	//for (int i = 0; i < tf_window - 1; ++i) {
-
-	//	qDebug() << proc_thread.tf_input_arr[i];
-	//	qDebug() << proc_thread.centroidy_d[i];
-
-	//}
 
 }
 

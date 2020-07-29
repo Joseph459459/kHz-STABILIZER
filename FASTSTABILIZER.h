@@ -50,7 +50,7 @@ public slots:
 	void on_learnButton_clicked();
 	void create_tf_plots();
 	void update_fft_plot();
-	void update_tf_plot(std::array<float,2> tf_params,QVector<double> filteredx, QVector<double> filteredy);
+	void update_tf_plot(QVector<double>, QVector<double>,QVector<double>,QVector<double>);
 	void on_horizontalZoomButton_toggled(bool j);
 	void new_filter(const QCPDataSelection& p);
 	void remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* e);

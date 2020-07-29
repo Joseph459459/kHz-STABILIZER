@@ -50,13 +50,16 @@ struct harmonics_filter {
 
 	}
 
-	void filter_vec(std::vector<double>& dest, double* in) {
+	void filter_vec(std::vector<double>& to_filter) {
 
-		for (int i = 0; i < dest.size(); ++i) {
+		double result;
 
-			dest[i] += fundamental->do_sample(in[i]) / gain_factors[0];
-			dest[i] += third->do_sample(in[i]) / gain_factors[1];
-			dest[i] += fifth->do_sample(in[i]) / gain_factors[2];
+		for (int i = 0; i < to_filter.size(); ++i) {
+
+			result = fundamental->do_sample(to_filter[i]) / gain_factors[0];
+			result += third->do_sample(to_filter[i]) / gain_factors[1];
+			result += fifth->do_sample(to_filter[i]) / gain_factors[2];
+			to_filter[i] = result;
 
 		}
 
@@ -583,64 +586,110 @@ void processing_thread::learn_transfer_function() {
 		emit updateprogress(tf_window);
 		
 		std::vector<QVector<double>*> xy = { &centroidx_d,&centroidy_d };
-		
-		std::vector<double> filtered_section(section_width);
 		std::vector<mat> sols;
 
 		QVector<QVector<double>> to_plot;
 		
-		mat A_section(section_width - 2 * (n_taps / 2) - 2, 2);
-
-		double* tf_input_section;
-		double* centroid_section;
+		vec A_section(section_width - 2 * (n_taps / 2) - 2);
+		vec b_section(section_width - 2 * (n_taps / 2) - 2);
+		vec diff_section(section_width - 2 * (n_taps / 2) - 2);
+		sol.clear();
+		fit_params.clear();
+		fit_params.clear();
 
 		for (QVector<double>* centroid : xy) {
 
-			mat A;
+			vec A;
 			vec b;
+			vec diff;
 
 			for (int j = 0; j < 3; ++j) {
 
-				tf_input_section = tf_input_arr.data() + j * section_width;
-				centroid_section = centroid->data() + j * section_width;
+				std::vector<double> tf_input_section( (double*)tf_input_arr.data() + j * section_width, (double*)tf_input_arr.data() + (j + 1) * section_width);
+				std::vector<double> centroid_section( (double*)centroid->data() + j * section_width, (double*)centroid->data() + (j + 1) * section_width);
 
 				//-----------------------------------------------------
+
+				double sum = std::accumulate(centroid_section.begin(), centroid_section.end(),0.0);
+				double centroid_mean = sum / centroid_section.size();
 
 				harmonics_filter filter(drive_freqs[j], 2);
 
-				std::fill(filtered_section.begin(), filtered_section.end(), 0);
 
-				filter.filter_vec(filtered_section, centroid_section);
+
+				for (int i = 0; i < centroid_section.size(); ++i) {
+
+					qDebug() << centroid_section[i];
+
+				}
+
+				filter.filter_vec(centroid_section);
 
 				//-----------------------------------------------------
 				
-				tf_input_section += n_taps/2;
-				centroid_section = filtered_section.data() + 2 * (n_taps / 2);
-			
+				tf_input_section.erase(tf_input_section.begin(), tf_input_section.begin() + n_taps / 2);
+				tf_input_section.erase(tf_input_section.end() - n_taps / 2, tf_input_section.end());
+				centroid_section.erase(centroid_section.begin(),centroid_section.begin() + 2 * (n_taps / 2));
 
-				for (int i = 0; i < section_width - 2 * (n_taps / 2) - 2; ++i) {
 
-					A_section(i, 0) = tf_input_section[i + 2] - 2 * tf_input_section[i + 1] + tf_input_section[i]
-						+ 2 * centroid_section[i + 1] - centroid_section[i];
-					A_section(i, 1) = tf_input_section[i + 2] - tf_input_section[i + 1];
-					
+
+				for (int i = 0; i < centroid_section.size(); ++i) {
+
+					qDebug() << centroid_section[i];
+
+				}
+
+				for (int i = 0; i < centroid_section.size(); ++i) {
+
+					qDebug() << tf_input_section[i];
+
+				}
+
+				sum = std::accumulate(centroid_section.begin(), centroid_section.end(),0.0);
+				double filtered_mean = sum / centroid_section.size();
+
+				for (double& d : centroid_section)
+					d += centroid_mean - filtered_mean;
+
+
+				for (int i = 0; i < centroid_section.size() - 2; ++i) {
+
+					A_section(i) = tf_input_section[i + 2] - 2 * tf_input_section[i + 1] + tf_input_section[i];
+									
+					b_section(i) = centroid_section[i + 2] - 2 * centroid_section[i + 1] + centroid_section[i];
+
+					diff_section(i) = tf_input_section[i + 2] - tf_input_section[i + 1];
+
 				}
 				
-				std::vector<double> sub_section(filtered_section.begin() + 2 * (n_taps / 2) + 2, filtered_section.end());
+				if (j == 2) {
+					to_plot.push_back(QVector<double>::fromStdVector(tf_input_section));
+					to_plot.push_back(QVector<double>::fromStdVector(centroid_section));
+				}
 
 				A = join_cols(A, A_section);
-				b = join_cols(b, vec(sub_section));
-
+				b = join_cols(b, b_section);
+				diff = join_cols(diff, diff_section);
 			}
 
-			to_plot.append(QVector<double>(filtered_section.begin(), filtered_section.begin() + section_width / 2));
-			sols.push_back(solve(A, b));
+			sol.push_back(as_scalar(solve(A, b)));
 
+			vec errors = A*(*sol.end()) - b;
+
+			p = errors.memptr();
+
+			mat coeffs = polyfit(diff, errors, 3);
+
+			for (double* p = coeffs.begin(); p < coeffs.end(); ++p)
+				qDebug() << *p;
+
+			std::array<double,4> fit = {coeffs(3), coeffs(2), coeffs(1), coeffs(0) };
+
+			fit_params.push_back(fit);
 		}
 
-		std::array<float, 2> tf_params = { sols[1](0,0), sols[1](1,0) };
 		
-		emit update_tf_plot(tf_params, to_plot[0], to_plot[1]);
+		emit update_tf_plot(to_plot[0], to_plot[1], to_plot[2], to_plot[3]);
 
 		emit finished_analysis();
 	}

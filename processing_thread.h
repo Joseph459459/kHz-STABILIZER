@@ -25,6 +25,9 @@ public:
 	QVector<double> centroidx_d;
 	QVector<double> centroidy_d;
 
+	std::vector<double> sol;
+	std::vector<std::array<double, 4>> fit_params;
+
 	Camera_t camera;
 	std::atomic<bool> acquiring = false;
 
@@ -58,7 +61,7 @@ signals:
 	void updateimagesize(int width, int height);
 	void updateprogress(int i);
 	void update_fft_plot();
-	void update_tf_plot(std::array<float,2> tf_params, QVector<double> filteredx, QVector<double> filteredy);
+	void update_tf_plot(QVector<double>, QVector<double>, QVector<double>, QVector<double>);
 	void finished_analysis();
 
 private:

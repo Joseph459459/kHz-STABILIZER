@@ -195,7 +195,6 @@ void stabilize() {
 
 			analogWriteDAC1(axes[1].DAC_cmds[0]);
 
-
 			ax_idx = 0;
 			for (axes_cell ax : axes) {
 				
