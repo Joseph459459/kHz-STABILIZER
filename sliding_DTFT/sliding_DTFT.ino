@@ -3,12 +3,12 @@
 #include <algorithm>
 #include <ADC.h>
 #include <vector>
-
 #include "FS_macros.h"
 
 
-
 ADC* adc = new ADC();
+
+uint16_t tf_input_arr[tf_window];
 
 
 int i, j;
@@ -17,7 +17,7 @@ int timeout = 0;
 float drive_freqs[3];
 
 
-int xDACmax = 0;
+uint16_t xDACmax = 0;
 uint16_t yDACmax = 0;
 
 
@@ -33,34 +33,50 @@ void setup()
 
 	Serial.begin(115200);
 
-	postsetup();
+	post_setup();
 }
 
-void postsetup() {
 
-	digitalWriteFast(LED_BUILTIN, LOW);
-	Serial.clear();
-	while (!Serial.available());
+void post_setup() {
 
-	switch (Serial.read()) {
 
-	case FIND_RANGE:
-		find_range();
+	while (true) {
 
-	case LEARN_TF:
-		learn_tf();
+		digitalWriteFast(LED_BUILTIN, LOW);
+		Serial.clear();
+		while (!Serial.available());
+		
+		switch (Serial.read()) {
 
-	case STABILIZE:
-		stabilize();
+		case FIND_RANGE:
+			find_range();
+			break;
 
-	default:
-		taper_down();
+		case LEARN_TF:
+			learn_tf();
+			break;
+
+		case STABILIZE:
+			stabilize();
+			break;
+
+		case INIT:
+			init_actuator();
+			break;
+
+		default:
+			taper_down();
+
+		}
 
 	}
-
 }
 
+
 void loop() {
+
+
+
 
 }
 
@@ -95,16 +111,16 @@ void stabilize() {
 
 void learn_tf() {
 	
+	digitalWriteFast(LED_BUILTIN, HIGH);
 
 	Serial.readBytes((char*)drive_freqs, 24);
-
-	uint16_t* tf_input_arr = new uint16_t[tf_window]();
 
 	tf_input_(tf_input_arr,yDACmax,drive_freqs);
 
 	init_actuator();
 
-	Serial.write((char*) &drive_freqs,24);
+	Serial.clear();
+	Serial.write((char*) CONTINUE, 1);
 	
 	i = 0;
 
@@ -112,8 +128,11 @@ void learn_tf() {
 
 		// 0.144 micros per loop iteration
 		while (!Serial.available()) {
-			if (++timeout > 6e6)
+			if (++timeout > 6e6) {
 				taper_down();
+				timeout = 0;
+				return;
+			}
 		}
 		timeout = 0;
 
@@ -121,6 +140,7 @@ void learn_tf() {
 			Serial.clear();
 		}
 		else {
+
 			delayMicroseconds(25);
 			analogWriteDAC0(tf_input_arr[i]);
 			analogWriteDAC1(tf_input_arr[i]);
@@ -129,7 +149,6 @@ void learn_tf() {
 		}
 	}
 
-	delete tf_input_arr;
 
 }
 
@@ -146,8 +165,11 @@ void find_range() {
 
 		// 0.144 micros per loop iteration
 		while (!Serial.available()) {
-			if (++timeout > 6e6)
+			if (++timeout > 6e6) {
 				taper_down();
+				timeout = 0;
+				return;
+			}
 		}
 		timeout = 0;
 
@@ -179,12 +201,10 @@ void find_range() {
 		}
 	}
 
-
-
 	taper_down();
 }
 
-void taper_down() {
+inline void taper_down() {
 
 	int tapering_val_y = adc->adc0->analogRead(A9);
 	int tapering_val_x = adc->adc1->analogRead(A3);
@@ -194,24 +214,23 @@ void taper_down() {
 		delayMicroseconds(100);
 	}
 
-	postsetup();
 }
 
-void init_actuator() {
+inline void init_actuator() {
 
-	for (int i = 0; i < 20; ++i) {
+	for (i = 0; i < 20; ++i) {
 		analogWriteDAC0(4095.0 / 20 * i);
 		analogWriteDAC1(4095.0 / 20 * i);
 		delay(1);
 	}
 
-	for (int i = 0; i < 20; ++i) {
+	for (i = 0; i < 20; ++i) {
 		analogWriteDAC0(4095 - 4095.0 / 20 * i);
 		analogWriteDAC1(4095 - 4095.0 / 20 * i);
 		delay(1);
 	}
 
-	for (int i = 0; i < 10; ++i) {
+	for (i = 0; i < 10; ++i) {
 		analogWriteDAC0(2048.0 / 20 * i);
 		analogWriteDAC1(2048.0 / 20 * i);
 		delay(1);

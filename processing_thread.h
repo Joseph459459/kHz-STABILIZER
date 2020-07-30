@@ -50,6 +50,11 @@ public:
 	std::vector<int> y_N;
 	std::vector<float> y_tones;
 
+	std::vector<std::array<float, 2>> DAC_centroid_linear;
+
+	float mean_x;
+	float mean_y;
+
 public slots:
 	void stabilize();
 	void stream();
@@ -59,6 +64,7 @@ public slots:
 	void find_actuator_range();
 	void learn_transfer_function();
 	void setup_stabilize();
+	void identify_initial_vals();
 
 signals:
 	void write_to_log(QString q);

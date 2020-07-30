@@ -223,6 +223,9 @@ void camview::finished_analysis()
 {
 	this->setDisabled(false);
 
+	safe_thread_close();
+
+
 	proc_thread->plan = STREAM;
 	proc_thread->start();
 
@@ -264,7 +267,7 @@ void camview::on_transferFunctionButton_clicked() {
 	connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
 	progressbox->show();
 	progressbox->raise();
-
+	
 	proc_thread->plan = LEARN_TF;
 	proc_thread->start(QThread::TimeCriticalPriority);
 }

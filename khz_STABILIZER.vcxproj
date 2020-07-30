@@ -136,7 +136,7 @@
   <ItemGroup>
     <ClInclude Include="filt.h" />
     <ClInclude Include="FS_macros.h" />
-    <ClInclude Include="stabilization_objects.h" />
+    <ClInclude Include="stabilization.h" />
     <QtMoc Include="qcustomplot.h" />
     <QtMoc Include="processing_thread.h" />
     <QtMoc Include="imageviewer.h" />
