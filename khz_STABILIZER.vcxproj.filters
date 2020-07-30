@@ -103,5 +103,8 @@
     <ClInclude Include="FS_macros.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="stabilization_objects.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

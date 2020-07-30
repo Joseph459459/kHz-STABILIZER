@@ -1,7 +1,6 @@
 #pragma once
 #include <stdio.h>
 
-#define num_tones 3
 #define _window 5000
 
 #define sampling_freq static_cast<float>(1000.0)

@@ -8,7 +8,7 @@ time_point<std::chrono::steady_clock> t2;
 
 
 FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
-	: QMainWindow(parent), proc_thread(c, this), xfilters(6), yfilters(6),animateTimer(this)
+	: QMainWindow(parent), proc_thread(c, this), x_filters(6), y_filters(6),animateTimer(this)
 {
 	ui.setupUi(this);
 
@@ -41,6 +41,8 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 	CV->safe_thread_close();
 
 	CV->close();
+
+	update_procthread();
 
 	proc_thread.plan = STABILIZE;
 	proc_thread.start(QThread::TimeCriticalPriority);
@@ -176,25 +178,25 @@ void FASTSTABILIZER::create_fft_plots() {
 	}
 
 	for (int i = 0; i < 6; ++i) {
-		xfilters[i].ptr = ui.plot->addGraph(ui.plot->axisRect(0)->axis(QCPAxis::atBottom), ui.plot->axisRect(0)->axis(QCPAxis::atLeft));
-		xfilters[i].ptr->setPen(QPen(QColor(250, 130, 0, 200)));
-		xfilters[i].ptr->selectionDecorator()->setPen(QPen(QColor(250, 130, 0, 200)));
-		xfilters[i].ptr->setBrush(QBrush(QColor(200, 130, 10, 40)));
-		xfilters[i].ptr->selectionDecorator()->setBrush(QBrush(QColor(200, 130, 60, 77)));
-		xfilters[i].ptr->setName(QString::number(i + 2));
-		xfilters[i].ptr->data()->clear();
-		connect(xfilters[i].ptr, qOverload<bool>(&QCPGraph::selectionChanged), this, &FASTSTABILIZER::animate_plot);
+		x_filters[i].ptr = ui.plot->addGraph(ui.plot->axisRect(0)->axis(QCPAxis::atBottom), ui.plot->axisRect(0)->axis(QCPAxis::atLeft));
+		x_filters[i].ptr->setPen(QPen(QColor(250, 130, 0, 200)));
+		x_filters[i].ptr->selectionDecorator()->setPen(QPen(QColor(250, 130, 0, 200)));
+		x_filters[i].ptr->setBrush(QBrush(QColor(200, 130, 10, 40)));
+		x_filters[i].ptr->selectionDecorator()->setBrush(QBrush(QColor(200, 130, 60, 77)));
+		x_filters[i].ptr->setName(QString::number(i + 2));
+		x_filters[i].ptr->data()->clear();
+		connect(x_filters[i].ptr, qOverload<bool>(&QCPGraph::selectionChanged), this, &FASTSTABILIZER::animate_plot);
 	}
 
 	for (int i = 0; i < 6; ++i) {
-		yfilters[i].ptr = ui.plot->addGraph(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), ui.plot->axisRect(1)->axis(QCPAxis::atLeft));
-		yfilters[i].ptr->setPen(QPen(QColor(250, 130, 0, 200)));
-		yfilters[i].ptr->selectionDecorator()->setPen(QPen(QColor(250, 130, 0, 200)));
-		yfilters[i].ptr->setBrush(QBrush(QColor(200, 130, 10, 40)));
-		yfilters[i].ptr->selectionDecorator()->setBrush(QBrush(QColor(200, 130, 60, 77)));
-		yfilters[i].ptr->setName(QString::number(i + 8));
-		yfilters[i].ptr->data()->clear();
-		connect(yfilters[i].ptr, qOverload<bool>(&QCPGraph::selectionChanged), this, &FASTSTABILIZER::animate_plot);
+		y_filters[i].ptr = ui.plot->addGraph(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), ui.plot->axisRect(1)->axis(QCPAxis::atLeft));
+		y_filters[i].ptr->setPen(QPen(QColor(250, 130, 0, 200)));
+		y_filters[i].ptr->selectionDecorator()->setPen(QPen(QColor(250, 130, 0, 200)));
+		y_filters[i].ptr->setBrush(QBrush(QColor(200, 130, 10, 40)));
+		y_filters[i].ptr->selectionDecorator()->setBrush(QBrush(QColor(200, 130, 60, 77)));
+		y_filters[i].ptr->setName(QString::number(i + 8));
+		y_filters[i].ptr->data()->clear();
+		connect(y_filters[i].ptr, qOverload<bool>(&QCPGraph::selectionChanged), this, &FASTSTABILIZER::animate_plot);
 
 	}
 
@@ -236,16 +238,16 @@ void FASTSTABILIZER::update_tf_plot(QVector<double> DAC_x, QVector<double> filte
 	
 	for (int i = 2; i < filtered_y.size(); ++i) {
 		
-		sim_centroid_y[i - 2] = proc_thread.sol[0] * (DAC_y[i] - 2 * DAC_y[i - 1] + DAC_y[i - 2]) + 2 * filtered_y[i - 1] - filtered_y[i - 2];
+		sim_centroid_y[i - 2] = proc_thread.sol[1] * (DAC_y[i] - 2 * DAC_y[i - 1] + DAC_y[i - 2]) + 2 * filtered_y[i - 1] - filtered_y[i - 2];
 
 		for (int j = 0; j < 4; ++j)
-			sim_centroid_y[i - 2] -= proc_thread.fit_params[0][j] * std::pow(DAC_y[i] - DAC_y[i - 1], j);
+			sim_centroid_y[i - 2] -= proc_thread.fit_params[1][j] * std::pow(DAC_y[i] - DAC_y[i - 1], j);
 
 
-		sim_centroid_x[i - 2] = proc_thread.sol[1] * (DAC_x[i] - 2 * DAC_x[i - 1] + DAC_x[i - 2]) + 2 * filtered_x[i - 1] - filtered_x[i - 2];
+		sim_centroid_x[i - 2] = proc_thread.sol[0] * (DAC_x[i] - 2 * DAC_x[i - 1] + DAC_x[i - 2]) + 2 * filtered_x[i - 1] - filtered_x[i - 2];
 		
 		for (int j = 1; j < 4; ++j)
-			sim_centroid_x[i - 2] -= proc_thread.fit_params[1][j] * std::pow(DAC_x[i] - DAC_x[i - 1], j);
+			sim_centroid_x[i - 2] -= proc_thread.fit_params[0][j] * std::pow(DAC_x[i] - DAC_x[i - 1], j);
 		
 
 	}
@@ -310,38 +312,38 @@ void FASTSTABILIZER::new_filter(const QCPDataSelection& p) {
 	
 	if (ui.plot->graph(0)->selected()) {
 		int i;
-		for (i = 0; i < xfilters.size(); ++i) {
-			if (xfilters[i].ptr->data()->isEmpty())
+		for (i = 0; i < x_filters.size(); ++i) {
+			if (x_filters[i].ptr->data()->isEmpty())
 				break;
 		}
 
-		if (i == xfilters.size())
+		if (i == x_filters.size())
 			return;
 
-		xfilters[i].ptr->setData(freqs, filtersim(freqs, p.dataRange().begin(), 50, 0));
+		x_filters[i].ptr->setData(freqs, filtersim(freqs, p.dataRange().begin(), 50, 0));
 
-		xfilters[i].N = 50;
-		xfilters[i].graphdatapos = p.dataRange().begin();
+		x_filters[i].N = 50;
+		x_filters[i].graphdatapos = p.dataRange().begin();
 
-		update_freq_label(50, xfilters[i].graphdatapos);
+		update_freq_label(50, x_filters[i].graphdatapos);
 
 		ui.plot->replot();
 	}
 
 	else if (ui.plot->graph(1)->selected()) {
 		int i;
-		for (i = 0; i < yfilters.size(); ++i) {
-			if (yfilters[i].ptr->data()->isEmpty())
+		for (i = 0; i < y_filters.size(); ++i) {
+			if (y_filters[i].ptr->data()->isEmpty())
 				break;
 		}
 
-		if (i == xfilters.size())
+		if (i == x_filters.size())
 			return;
 
-		yfilters[i].ptr->setData(freqs, filtersim(freqs, p.dataRange().begin(), 50, 0));
+		y_filters[i].ptr->setData(freqs, filtersim(freqs, p.dataRange().begin(), 50, 0));
 
-		yfilters[i].N = 50;
-		yfilters[i].graphdatapos = p.dataRange().begin();
+		y_filters[i].N = 50;
+		y_filters[i].graphdatapos = p.dataRange().begin();
 
 		ui.plot->replot();
 
@@ -354,45 +356,45 @@ void FASTSTABILIZER::keyPressEvent(QKeyEvent* e)
 	if (e->key() == Qt::Key_Up || e->key() == Qt::Key_Down || e->key() == Qt::Key_Left || e->key() == Qt::Key_Right) {
 
 
-		for (int i = 0; i < xfilters.size(); ++i) {
+		for (int i = 0; i < x_filters.size(); ++i) {
 			
-			if (xfilters[i].ptr->selected()) {
+			if (x_filters[i].ptr->selected()) {
 
 				if (e->key() == Qt::Key_Up) 
-					xfilters[i].ptr->setData(freqs, filtersim(freqs, xfilters[i].graphdatapos, xfilters[i].N += 1, 0));
+					x_filters[i].ptr->setData(freqs, filtersim(freqs, x_filters[i].graphdatapos, x_filters[i].N += 1, 0));
 
 				else if (e->key() == Qt::Key_Down)
-					xfilters[i].ptr->setData(freqs, filtersim(freqs, xfilters[i].graphdatapos, xfilters[i].N -= 1, 0));
+					x_filters[i].ptr->setData(freqs, filtersim(freqs, x_filters[i].graphdatapos, x_filters[i].N -= 1, 0));
 
 				else if (e->key() == Qt::Key_Left) 
-					xfilters[i].ptr->setData(freqs, filtersim(freqs, xfilters[i].graphdatapos -= 1, xfilters[i].N, 0));
+					x_filters[i].ptr->setData(freqs, filtersim(freqs, x_filters[i].graphdatapos -= 1, x_filters[i].N, 0));
 
 				else if (e->key() == Qt::Key_Right) 
-					xfilters[i].ptr->setData(freqs, filtersim(freqs, xfilters[i].graphdatapos += 1, xfilters[i].N, 0));
+					x_filters[i].ptr->setData(freqs, filtersim(freqs, x_filters[i].graphdatapos += 1, x_filters[i].N, 0));
 
-				update_freq_label(xfilters[i].N, xfilters[i].graphdatapos);
+				update_freq_label(x_filters[i].N, x_filters[i].graphdatapos);
 			}
 
 		}
 
 
 
-		for (int i = 0; i < yfilters.size(); ++i) {
-			if (yfilters[i].ptr->selected()) {
+		for (int i = 0; i < y_filters.size(); ++i) {
+			if (y_filters[i].ptr->selected()) {
 
 				if (e->key() == Qt::Key_Up) 
-					yfilters[i].ptr->setData(freqs, filtersim(freqs, yfilters[i].graphdatapos, yfilters[i].N += 1, 0));
+					y_filters[i].ptr->setData(freqs, filtersim(freqs, y_filters[i].graphdatapos, y_filters[i].N += 1, 0));
 
 				else if (e->key() == Qt::Key_Down) 
-					yfilters[i].ptr->setData(freqs, filtersim(freqs, yfilters[i].graphdatapos, yfilters[i].N -= 1, 0));
+					y_filters[i].ptr->setData(freqs, filtersim(freqs, y_filters[i].graphdatapos, y_filters[i].N -= 1, 0));
 
 				else if (e->key() == Qt::Key_Left) 
-					yfilters[i].ptr->setData(freqs, filtersim(freqs, yfilters[i].graphdatapos -= 1, yfilters[i].N, 0));
+					y_filters[i].ptr->setData(freqs, filtersim(freqs, y_filters[i].graphdatapos -= 1, y_filters[i].N, 0));
 
 				else if (e->key() == Qt::Key_Right) 
-					yfilters[i].ptr->setData(freqs, filtersim(freqs, yfilters[i].graphdatapos += 1, yfilters[i].N, 0));
+					y_filters[i].ptr->setData(freqs, filtersim(freqs, y_filters[i].graphdatapos += 1, y_filters[i].N, 0));
 
-				update_freq_label(yfilters[i].N, yfilters[i].graphdatapos);
+				update_freq_label(y_filters[i].N, y_filters[i].graphdatapos);
 
 			}
 
@@ -413,6 +415,8 @@ void FASTSTABILIZER::remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* 
 
 	for (int i = 2;i < 14; ++i) {
 		if (!QString::compare(p->name(), QString::number(i))) {
+
+
 
 			ui.plot->graph(i)->data()->clear();
 			ui.plotLabel->clear();
@@ -451,15 +455,15 @@ void FASTSTABILIZER::animate_plot(bool j) {
 void FASTSTABILIZER::animate(int i) {
 
 	if (i < 8) {
-		ui.plot->graph(i)->setData(freqs, filtersim(freqs, xfilters[i - 2].graphdatapos, xfilters[i - 2].N, phi += 0.3));
+		ui.plot->graph(i)->setData(freqs, filtersim(freqs, x_filters[i - 2].graphdatapos, x_filters[i - 2].N, phi += 0.3));
 		ui.plot->replot(QCustomPlot::RefreshPriority::rpQueuedReplot);
-		update_freq_label(xfilters[i-2].N, xfilters[i-2].graphdatapos);
+		update_freq_label(x_filters[i-2].N, x_filters[i-2].graphdatapos);
 
 	}
 	else {
-		ui.plot->graph(i)->setData(freqs, filtersim(freqs, yfilters[i - 8].graphdatapos, yfilters[i - 8].N, phi += 0.3));
+		ui.plot->graph(i)->setData(freqs, filtersim(freqs, y_filters[i - 8].graphdatapos, y_filters[i - 8].N, phi += 0.3));
 		ui.plot->replot(QCustomPlot::RefreshPriority::rpQueuedReplot);
-		update_freq_label(yfilters[i - 8].N, yfilters[i - 8].graphdatapos);
+		update_freq_label(y_filters[i - 8].N, y_filters[i - 8].graphdatapos);
 
 	}
 }
@@ -468,5 +472,35 @@ void FASTSTABILIZER::update_freq_label(int N, int graphdatapos) {
 
 	ui.plotLabel->setText("Freq: " + QString::number(graphdatapos / (_window / 2.0) * 500) +
 		" Hz | Window: " + QString::number(N) + " ms ");
+
+
+}
+
+void FASTSTABILIZER::update_procthread() {
+
+	proc_thread.x_tones.clear();
+	proc_thread.x_N.clear();
+
+	proc_thread.y_tones.clear();
+	proc_thread.y_N.clear();
+
+
+	for (int i = 0; i < x_filters.size(); ++i) {
+
+		if (!x_filters[i].ptr->data()->isEmpty()) {
+			proc_thread.x_tones.push_back(x_filters[i].graphdatapos * (_window / 2.0) * 500);
+			proc_thread.x_N.push_back(x_filters[i].N);
+		}
+	}
+
+
+	for (int i = 0; i < y_filters.size(); ++i) {
+
+		if (!y_filters[i].ptr->data()->isEmpty()) {
+			proc_thread.y_tones.push_back(y_filters[i].graphdatapos * (_window / 2.0) * 500);
+			proc_thread.y_N.push_back(y_filters[i].N);
+		}
+	}
+
 
 }

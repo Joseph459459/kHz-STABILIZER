@@ -4,6 +4,10 @@
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_filter.h>
 #include <gsl/gsl_math.h>
+#include "stabilization_objects.h"
+#include <algorithm>
+
+#define sq(x) ((x)*(x))
 
 using namespace arma;
 
@@ -77,6 +81,9 @@ processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
 {
 	PylonInitialize();
 
+	fit_params.reserve(2);
+	sol.reserve(2);
+
 	CDeviceInfo info;
 	info.SetDeviceClass(Camera_t::DeviceClass());
 }
@@ -96,6 +103,42 @@ void processing_thread::adjust_framerate() {
 		camera.AcquisitionFrameRateAbs.SetValue(camera.ResultingFrameRateAbs());
 
 }
+
+
+
+void processing_thread::setup_stabilize() {
+
+	int i;
+
+	axes[0].num_tones = x_tones.size();
+	axes[1].num_tones = y_tones.size();
+
+	for (i = 0; i < x_tones.size(); ++i) {
+		axes[0].w[i] = 2 * PI * x_tones[i] / 1000;
+		axes[0].N[i] = x_N[i];
+	}
+
+	for (i = 0; i < y_tones.size(); ++i) {
+		axes[1].w[i] = 2 * PI * y_tones[i] / 1000;
+		axes[1].N[i] = y_N[i];
+	}
+
+	axes[0].tf_params[0] = sol[0];
+	axes[1].tf_params[0] = sol[1];
+
+	for (i = 1; i < 5; ++i) {
+		axes[0].tf_params[i] = fit_params[0][i - 1];
+		axes[1].tf_params[i] = fit_params[1][i - 1];
+	}
+
+	axes[0].maxN = *std::max_element(x_N.begin(), x_N.end());
+	axes[0].signal = new float[axes[0].maxN]();
+
+	axes[1].maxN = *std::max_element(y_N.begin(), y_N.end());
+	axes[1].signal = new float[axes[1].maxN]();
+
+}
+
 
 void processing_thread::stabilize() {
 
@@ -120,15 +163,15 @@ void processing_thread::stabilize() {
 		return;
 	};
 
-	bool j = true;
+	bool p = true;
 
-	j = teensy.setBaudRate(QSerialPort::Baud115200);
-	j = teensy.setDataBits(QSerialPort::Data8);
-	j = teensy.setParity(QSerialPort::NoParity);
-	j = teensy.setStopBits(QSerialPort::OneStop);
-	j = teensy.setFlowControl(QSerialPort::NoFlowControl);
+	p = teensy.setBaudRate(QSerialPort::Baud115200);
+	p = teensy.setDataBits(QSerialPort::Data8);
+	p = teensy.setParity(QSerialPort::NoParity);
+	p = teensy.setStopBits(QSerialPort::OneStop);
+	p = teensy.setFlowControl(QSerialPort::NoFlowControl);
 
-	if (!j) {
+	if (!p) {
 		emit write_to_log(QString("Error configuring USB connection."));
 		return;
 	}
@@ -140,10 +183,59 @@ void processing_thread::stabilize() {
 
 #pragma endregion
 
-	float tones[6] = { 10, 20, 30, 40, 50, 60 };
 
-	teensy.write((const char*)tones, 24);
+	adjust_framerate();
 
+	emit write_to_log(QString("Beginning Stabilization..."));
+
+	setup_stabilize();
+
+
+	if (camera.ResultingFrameRateAbs.GetValue() < 1000) {
+
+		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
+		emit finished_analysis();
+		return;
+	}
+	
+	std::vector<float> next_commands;
+	next_commands.reserve(2);
+
+
+	GrabResultPtr_t ptr;
+	const int height = camera.Height();
+	const int width = camera.Width();
+	const int threshold = threshold;
+	float new_centroid[2];
+
+	camera.MaxNumBuffer.SetValue(5);
+	camera.StartGrabbing();
+	int k;
+
+	while (acquiring) {
+
+		if (camera.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
+
+
+			centroid(ptr, height, width, new_centroid, threshold);
+
+
+			for (k = 0; k < 2; ++k) {
+				next_commands[k] = axes[k].next_DAC(new_centroid[k]);
+			}
+
+
+			//teensy.write
+
+
+
+			for (k = 0; k < 2; ++k) {
+				axes[k].post_step(new_centroid[k]);
+		
+			}
+		
+		}
+	}
 
 }
 
@@ -156,7 +248,6 @@ void processing_thread::stream() {
 	emit updateimagesize(camera.Width.GetValue(), camera.Height.GetValue());
 
 	camera.MaxNumBuffer.SetValue(20);
-
 	camera.StartGrabbing();
 	GrabResultPtr_t ptr;
 	acquiring = true;
@@ -178,128 +269,130 @@ void processing_thread::analyze_spectrum() {
 	emit write_to_log(QString("Beginning Noise Profiling..."));
 
 	if (camera.ResultingFrameRateAbs.GetValue() < 1000) {
-		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
-	}
-
-	else {
-
-		centroidx_f.resize(_window);
-		centroidy_f.resize(_window);
-
-		camera.MaxNumBuffer.SetValue(_window);
-		camera.GevSCPSPacketSize.SetValue(((camera.Height.GetValue() * camera.Width.GetValue() + 14) / 4) * 4);
-
-		std::vector<GrabResultPtr_t> ptrs(_window);
-
-		int missed = 0;
-		int i = 0;
-		camera.StartGrabbing();
-
-		while (i < _window) {
-			if (camera.RetrieveResult(30, ptrs[i], Pylon::TimeoutHandling_Return)) {
-				++i;
-			}
-			else {
-				++missed;
-			}
-
-			if (i % (_window / 100) == 0) {
-				emit updateprogress(i);
-			}
-		}
-
-		camera.StopGrabbing();
-
-		emit updateprogress(_window);
-
-		emit write_to_log(QString::number(i) + QString(" Shots recorded"));
-
-		emit write_to_log(QString::number(missed) + QString(" Shots missed"));
-
-		std::function<std::array<float, 2>(GrabResultPtr_t)> calc;
-
-		calc = [thresh = threshold](GrabResultPtr_t pt) {
-			return centroid(pt, thresh);};
-
-		QFuture<std::array<float, 2>> centroids = QtConcurrent::mapped(ptrs.begin(), ptrs.end(), calc);
-
-		centroids.waitForFinished();
-
-		float sumx = 0;
-		float sumy = 0;
-		int nans = 0;
-
-		for (int i = 0; i < _window; ++i) {
-			if (std::isnan(centroids.resultAt(i)[0]))
-				++nans;
-
-			centroidx_f[i] = centroids.resultAt(i)[0];
-			sumx += centroidx_f[i];
-
-			if (std::isnan(centroids.resultAt(i)[1]))
-				++nans;
-
-			centroidy_f[i] = centroids.resultAt(i)[1];
-			sumy += centroidy_f[i];
-		}
-
-		float meanx = sumx / _window;
-		float meany = sumy / _window;
-
-		for (int i = 0; i < _window; ++i) {
-			centroidx_f[i] -= meanx;
-			centroidy_f[i] -= meany;
-		}
-
-		write_to_log(QString::number(nans) + QString(" NaN centroids detected"));
-
-		planx = fftwf_plan_r2r_1d(_window, centroidx_f.data(), fft_outx, FFTW_R2HC, FFTW_ESTIMATE);
-		plany = fftwf_plan_r2r_1d(_window, centroidy_f.data(), fft_outy, FFTW_R2HC, FFTW_ESTIMATE);
-
-		fftwf_execute(planx);
-		fftwf_execute(plany);
-
-		Filter LP = Filter(LPF, 60, 1, 0.1);
-		if (LP.get_error_flag() != 0) {
-			emit write_to_log(QString("LP Filter is broken."));
-		}
-
-		fftx.resize(_window / 2);
-		ffty.resize(_window / 2);
-
-
-		fftx[0] = sqrt(fft_outx[0] * fft_outx[0]);
-		ffty[0] = sqrt(fft_outy[0] * fft_outy[0]);
-
-
-		for (int i = 1; i < (_window + 1) / 2 - 1; ++i) {
-
-			fftx[i] = sqrt(fft_outx[i] * fft_outx[i] +
-				fft_outx[_window - i] * fft_outx[_window - i]);
-		}
-
-		for (int i = 1; i < (_window + 1) / 2 - 1; ++i) {
-			ffty[i] = sqrt(fft_outy[i] * fft_outy[i] +
-				fft_outy[_window - i] * fft_outy[_window - i]);
-		}
-
-		double maxX = *(std::max_element(fftx.begin(), fftx.end()));
-		float maxY = *(std::max_element(ffty.begin(), ffty.end()));
-
-		for (int i = 0; i < _window / 2; ++i) {
-			fftx[i] = fftx[i] / maxX;
-			ffty[i] = ffty[i] / maxY;
-
-		}
-
-		find_driving_freqs();
 		
-		emit update_fft_plot();
+		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
+		emit finished_analysis();
+		return;
+	}
 
-		fftwf_destroy_plan(planx);
-		fftwf_destroy_plan(plany);
+	
+	centroidx_f.resize(_window);
+	centroidy_f.resize(_window);
+
+
+	std::vector<GrabResultPtr_t> ptrs(_window);
+
+	int missed = 0;
+	int i = 0;
+
+
+	camera.MaxNumBuffer.SetValue(_window);
+	camera.GevSCPSPacketSize.SetValue(((camera.Height.GetValue() * camera.Width.GetValue() + 14) / 4) * 4);
+	camera.StartGrabbing();
+
+	while (i < _window) {
+		if (camera.RetrieveResult(30, ptrs[i], Pylon::TimeoutHandling_Return)) {
+			++i;
+		}
+		else {
+			++missed;
+		}
+
+		if (i % (_window / 100) == 0) {
+			emit updateprogress(i);
+		}
+	}
+
+	camera.StopGrabbing();
+
+	emit updateprogress(_window);
+
+	emit write_to_log(QString::number(i) + QString(" Shots recorded"));
+
+	emit write_to_log(QString::number(missed) + QString(" Shots missed"));
+
+	std::function<std::array<float, 2>(GrabResultPtr_t)> calc;
+
+	calc = [thresh = threshold](GrabResultPtr_t pt) {
+		return centroid(pt, thresh);};
+
+	QFuture<std::array<float, 2>> centroids = QtConcurrent::mapped(ptrs.begin(), ptrs.end(), calc);
+
+	centroids.waitForFinished();
+
+	float sumx = 0;
+	float sumy = 0;
+	int nans = 0;
+
+	for (int i = 0; i < _window; ++i) {
+		if (std::isnan(centroids.resultAt(i)[0]))
+			++nans;
+
+		centroidx_f[i] = centroids.resultAt(i)[0];
+		sumx += centroidx_f[i];
+
+		if (std::isnan(centroids.resultAt(i)[1]))
+			++nans;
+
+		centroidy_f[i] = centroids.resultAt(i)[1];
+		sumy += centroidy_f[i];
+	}
+
+	float meanx = sumx / _window;
+	float meany = sumy / _window;
+
+	for (int i = 0; i < _window; ++i) {
+		centroidx_f[i] -= meanx;
+		centroidy_f[i] -= meany;
+	}
+
+	write_to_log(QString::number(nans) + QString(" NaN centroids detected"));
+
+	planx = fftwf_plan_r2r_1d(_window, centroidx_f.data(), fft_outx, FFTW_R2HC, FFTW_ESTIMATE);
+	plany = fftwf_plan_r2r_1d(_window, centroidy_f.data(), fft_outy, FFTW_R2HC, FFTW_ESTIMATE);
+
+	fftwf_execute(planx);
+	fftwf_execute(plany);
+
+	Filter LP = Filter(LPF, 60, 1, 0.1);
+	if (LP.get_error_flag() != 0) {
+		emit write_to_log(QString("LP Filter is broken."));
+	}
+
+	fftx.resize(_window / 2);
+	ffty.resize(_window / 2);
+
+
+	fftx[0] = sqrt(fft_outx[0] * fft_outx[0]);
+	ffty[0] = sqrt(fft_outy[0] * fft_outy[0]);
+
+
+	for (int i = 1; i < (_window + 1) / 2 - 1; ++i) {
+
+		fftx[i] = sqrt(fft_outx[i] * fft_outx[i] +
+			fft_outx[_window - i] * fft_outx[_window - i]);
+	}
+
+	for (int i = 1; i < (_window + 1) / 2 - 1; ++i) {
+		ffty[i] = sqrt(fft_outy[i] * fft_outy[i] +
+			fft_outy[_window - i] * fft_outy[_window - i]);
+	}
+
+	double maxX = *(std::max_element(fftx.begin(), fftx.end()));
+	float maxY = *(std::max_element(ffty.begin(), ffty.end()));
+
+	for (int i = 0; i < _window / 2; ++i) {
+		fftx[i] = fftx[i] / maxX;
+		ffty[i] = ffty[i] / maxY;
 
 	}
+
+	find_driving_freqs();
+
+	emit update_fft_plot();
+
+	fftwf_destroy_plan(planx);
+	fftwf_destroy_plan(plany);
 
 
 	emit finished_analysis();
@@ -323,8 +416,6 @@ void processing_thread::find_driving_freqs() {
 
 	gsl_filter_median(GSL_FILTER_END_TRUNCATE, convy, filteredy, filt);
 	gsl_filter_median(GSL_FILTER_END_TRUNCATE, convx, filteredx, filt);
-
-	p = filteredy->data;
 
 	// First third
 	gsl_vector_view y1 = gsl_vector_subvector(filteredy, 5 * _window / 2 / 500, _window / 2 / 5 / 3 - 5 * _window / 2 / 500);
@@ -449,20 +540,6 @@ void processing_thread::find_actuator_range() {
 	emit finished_analysis();
 }
 
-double tf_model_error(const std::vector<double >& coeffs, std::vector<double>& grad, void* f_data) {
-
-	processing_thread* proc = (processing_thread*)f_data;
-	double sumsq = 0;
-
-	for (int i = 2; i < tf_window; ++i) {
-
-		sumsq += (proc->centroidy_d[i] + coeffs[0] * proc->centroidy_d[i - 1] + coeffs[1] * proc->centroidy_d[i - 2]) - 
-			(coeffs[2]*proc->tf_input_arr[i-1] + coeffs[3]*proc->tf_input_arr[i-2]);
-	}
-
-	return sumsq;
-}
-
 void processing_thread::learn_transfer_function() {
 
 	emit write_to_log(QString("Finding Pixel/DAC Transfer Function..."));
@@ -549,6 +626,7 @@ void processing_thread::learn_transfer_function() {
 		int missed = 0;
 		int i = 0;
 		
+		camera.MaxNumBuffer.SetValue(tf_window);
 		camera.StartGrabbing();
 
 		while (i < tf_window) {
@@ -593,8 +671,8 @@ void processing_thread::learn_transfer_function() {
 		vec A_section(section_width - 2 * (n_taps / 2) - 2);
 		vec b_section(section_width - 2 * (n_taps / 2) - 2);
 		vec diff_section(section_width - 2 * (n_taps / 2) - 2);
+		
 		sol.clear();
-		fit_params.clear();
 		fit_params.clear();
 
 		for (QVector<double>* centroid : xy) {
@@ -615,14 +693,6 @@ void processing_thread::learn_transfer_function() {
 
 				harmonics_filter filter(drive_freqs[j], 2);
 
-
-
-				for (int i = 0; i < centroid_section.size(); ++i) {
-
-					qDebug() << centroid_section[i];
-
-				}
-
 				filter.filter_vec(centroid_section);
 
 				//-----------------------------------------------------
@@ -631,19 +701,6 @@ void processing_thread::learn_transfer_function() {
 				tf_input_section.erase(tf_input_section.end() - n_taps / 2, tf_input_section.end());
 				centroid_section.erase(centroid_section.begin(),centroid_section.begin() + 2 * (n_taps / 2));
 
-
-
-				for (int i = 0; i < centroid_section.size(); ++i) {
-
-					qDebug() << centroid_section[i];
-
-				}
-
-				for (int i = 0; i < centroid_section.size(); ++i) {
-
-					qDebug() << tf_input_section[i];
-
-				}
 
 				sum = std::accumulate(centroid_section.begin(), centroid_section.end(),0.0);
 				double filtered_mean = sum / centroid_section.size();
@@ -674,14 +731,9 @@ void processing_thread::learn_transfer_function() {
 
 			sol.push_back(as_scalar(solve(A, b)));
 
-			vec errors = A*(*sol.end()) - b;
-
-			p = errors.memptr();
+			vec errors = A*(*(sol.end()-1)) - b;
 
 			mat coeffs = polyfit(diff, errors, 3);
-
-			for (double* p = coeffs.begin(); p < coeffs.end(); ++p)
-				qDebug() << *p;
 
 			std::array<double,4> fit = {coeffs(3), coeffs(2), coeffs(1), coeffs(0) };
 
@@ -689,14 +741,27 @@ void processing_thread::learn_transfer_function() {
 		}
 
 		
+		emit write_to_log(" centroid_y'' = " + QString::number(sol[1]) + "x'' - (" +
+			QString::number(fit_params[1][3]) + "x'^3 + " +
+			QString::number(fit_params[1][2]) + "x'^2 + " +
+			QString::number(fit_params[1][1]) + "x' + " +
+			QString::number(fit_params[1][0]) + ") ");
+		
+		emit write_to_log(" centroid_x'' = " + QString::number(sol[0]) + "x'' - (" +
+			QString::number(fit_params[0][3]) + "x'^3 + " +
+			QString::number(fit_params[0][2]) + "x'^2 + " +
+			QString::number(fit_params[0][1]) + "x' + " +
+			QString::number(fit_params[0][0]) + ") ");
+
+		
+	
+
 		emit update_tf_plot(to_plot[0], to_plot[1], to_plot[2], to_plot[3]);
 
 		emit finished_analysis();
 	}
 
 }
-
-
 
 void processing_thread::run() {
 

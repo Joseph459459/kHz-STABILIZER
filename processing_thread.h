@@ -43,7 +43,12 @@ public:
 	uint16_t xDACmax;
 	QVector<double> tf_input_arr;
 	std::array<float, 3> drive_freqs;
-	double* p;
+
+	std::vector<int> x_N;
+	std::vector<float> x_tones;
+
+	std::vector<int> y_N;
+	std::vector<float> y_tones;
 
 public slots:
 	void stabilize();
@@ -53,6 +58,7 @@ public slots:
 	void adjust_framerate();
 	void find_actuator_range();
 	void learn_transfer_function();
+	void setup_stabilize();
 
 signals:
 	void write_to_log(QString q);
@@ -63,6 +69,7 @@ signals:
 	void update_fft_plot();
 	void update_tf_plot(QVector<double>, QVector<double>, QVector<double>, QVector<double>);
 	void finished_analysis();
+
 
 private:
 	void run() override;
@@ -204,7 +211,7 @@ inline std::array<double, 6> allparams(GrabResultPtr_t ptr, const int thresh) {
 	4 * sqrt(((double)sumxx - sumx * (double)sumx / (double)sum) / ((double)sum)),
 	4 * sqrt(((double)sumyy - sumy * (double)sumy / (double)sum) / ((double)sum)),
 		max_val,
-		sum / static_cast<double>(width * height)
+		sum / (double) (width * height)
 	};
 
 	return out;

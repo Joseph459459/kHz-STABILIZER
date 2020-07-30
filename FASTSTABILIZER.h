@@ -31,8 +31,8 @@ public:
 	camview* CV;
 	processing_thread proc_thread;
 	QVector<double> freqs;
-	QVector<myFilter> xfilters;
-	QVector<myFilter> yfilters;
+	QVector<myFilter> x_filters;
+	QVector<myFilter> y_filters;
 	std::vector<QCPCurve*> hysteresis_curves;
 	QTimer animateTimer;
 	float phi = 0;
@@ -58,6 +58,7 @@ public slots:
 	void animate(int i);
 	void create_fft_plots();
 	void update_freq_label(int N, int graphdatapos);
+	void update_procthread();
 
 	QVector<double> filtersim(QVector<double>& in, int graphpos, int N, float phi);
 
