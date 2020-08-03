@@ -60,10 +60,6 @@ void post_setup() {
 			stabilize();
 			break;
 
-		case INIT:
-			init_actuator();
-			break;
-
 		default:
 			taper_down();
 
@@ -84,11 +80,16 @@ void loop() {
 
 void stabilize() {
 
+	init_actuator();
+
 	while (true) {
 
 		while (!Serial.available()) {
-			if (++timeout > 20000)
+			if (++timeout > 2e7) {
 				taper_down();
+				timeout = 0;
+				return;
+			}
 		};
 		timeout = 0;
 
@@ -148,7 +149,8 @@ void learn_tf() {
 			++i;
 		}
 	}
-
+	
+	taper_down();
 
 }
 

@@ -31,15 +31,15 @@ struct axes_cell {
 	double solved_cubic[3];
 	int num_sols;
 	float target[3];
-	float noiseless_centroid[3];
-	float noise_element;
+	float noise_element = 0;
 	float m;
 	float b;
+	float SET_POINT;
 	int temp_cmds[3];
 
 	int next_DAC(float in) {
-
-		noise_element = in - target[1];
+		
+		noise_element = (in - SET_POINT) + (SET_POINT - target[0]);
 
 		differential = 0;
 
@@ -61,12 +61,24 @@ struct axes_cell {
 			
 			differential +=
 
-				Chi[j].mag * cosf(w[j] * N[j] + Chi[j].phase) -
-				Chi[j].mag * cosf(w[j] * (N[j] - 1) + Chi[j].phase);
+				Chi[j].mag * cosf(w[j] * (N[j] + 1) + Chi[j].phase) -
+				Chi[j].mag * cosf(w[j] * (N[j] - 0) + Chi[j].phase);
 
 		}
 
-		target[0] = in - differential;
+
+		if (n < 600) {
+
+			qDebug() << Chi[0].mag;
+			qDebug() << Chi[0].phase;
+			qDebug() << differential;
+			qDebug() << in;
+
+			return DAC_cmds[0];
+		}
+
+		//target[0] = 2 * SET_POINT - (in + differential);
+		target[0] = SET_POINT - (noise_element + differential);
 
 		num_sols = gsl_poly_solve_cubic(tf_params[3] / tf_params[4],
 			(tf_params[3] - tf_params[0]) / tf_params[4],
@@ -76,7 +88,7 @@ struct axes_cell {
 		if (num_sols == 1) {
 			DAC_cmds[0] = round(solved_cubic[0]) + DAC_cmds[1];
 		}
-
+			
 		else {
 			
 			// FIND ROOT CLOSEST TO THE LINEAR APPROXIMATE COMMAND
@@ -91,13 +103,18 @@ struct axes_cell {
 
 		}
 
+
+		qDebug() << noise_element + differential;
+		qDebug() << target[0];
+		qDebug() << noise_element;
+		qDebug() << in;
+
 		return DAC_cmds[0];
 
 	}
 
 	void post_step() {
 
-		differential = 0;
 
 		noisy_signal[n % maxN] = noise_element;
 

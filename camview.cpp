@@ -37,7 +37,6 @@ camview::~camview()
 	};
 
 	proc_thread->camera.Close();
-	proc_thread->camera.DestroyDevice();
 }
 
 void camview::updateimage(GrabResultPtr_t ptr) {

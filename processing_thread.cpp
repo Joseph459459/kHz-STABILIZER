@@ -11,6 +11,8 @@
 
 using namespace arma;
 
+#define STABILIZE_DEBUG
+
 struct harmonics_filter {
 
 	harmonics_filter(int freq, int half_bandwidth) {
@@ -104,6 +106,43 @@ void processing_thread::adjust_framerate() {
 
 }
 
+void processing_thread::identify_initial_vals() {
+
+	msleep(50);
+
+	GrabResultPtr_t ptr;
+	const int height = camera.Height();
+	const int width = camera.Width();
+
+	camera.MaxNumBuffer.SetValue(5);
+	camera.StartGrabbing();
+	int k;
+
+	std::vector<float> centroid_x(2000);
+	std::vector<float> centroid_y(2000);
+	float new_centroid[2];
+
+	for (int i = 0; i < 2000; ++i) {
+
+		if (camera.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
+
+			centroid(ptr, height, width, new_centroid, threshold);
+
+			centroid_x[i] = new_centroid[0];
+			centroid_y[i] = new_centroid[1];
+
+		}
+	}
+
+	camera.StopGrabbing();
+
+	mean_x = std::accumulate(centroid_x.begin(), centroid_x.end(), 0.0) / centroid_x.size();
+	mean_y = std::accumulate(centroid_y.begin(), centroid_y.end(), 0.0) / centroid_y.size();
+
+
+
+}
+
 void processing_thread::setup_stabilize() {
 
 	int i;
@@ -129,17 +168,20 @@ void processing_thread::setup_stabilize() {
 		axes[1].tf_params[i] = fit_params[1][i - 1];
 	}
 
-	axes[0].maxN = *std::max_element(x_N.begin(), x_N.end());
-	axes[0].noisy_signal = new float[axes[0].maxN]();
+	if (x_N.size() > 0) {
+		axes[0].maxN = *std::max_element(x_N.begin(), x_N.end());
+		axes[0].noisy_signal = new float[axes[0].maxN]();
+	}
 
-	axes[1].maxN = *std::max_element(y_N.begin(), y_N.end());
-	axes[1].noisy_signal = new float[axes[1].maxN]();
-
+	if (y_N.size() > 0) {
+		axes[1].maxN = *std::max_element(y_N.begin(), y_N.end());
+		axes[1].noisy_signal = new float[axes[1].maxN]();
+	}
 	for (int i = 0; i < 3; ++i) {
-		
+
 		axes[0].target[i] = mean_x;
 		axes[1].target[i] = mean_y;
-		
+
 		axes[0].DAC_cmds[i] = 2048;
 		axes[1].DAC_cmds[i] = 2048;
 
@@ -147,46 +189,12 @@ void processing_thread::setup_stabilize() {
 
 	axes[0].m = DAC_centroid_linear[0][0];
 	axes[0].b = DAC_centroid_linear[0][1];
-	
+
 	axes[1].m = DAC_centroid_linear[1][0];
 	axes[1].b = DAC_centroid_linear[1][1];
 
-}
-
-void processing_thread::identify_initial_vals() {
-
-	msleep(50);
-
-	GrabResultPtr_t ptr;
-	const int height = camera.Height();
-	const int width = camera.Width();
-
-	camera.MaxNumBuffer.SetValue(5);
-	camera.StartGrabbing();
-	int k;
-
-	std::vector<float> centroid_x(2000);
-	std::vector<float> centroid_y(2000);
-	float new_centroid[2];
-
-	for (int i = 0; i < 3000; ++i) {
-
-		if (camera.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
-
-			centroid(ptr, height, width, new_centroid, threshold);
-
-			centroid_x[i] = new_centroid[0];
-			centroid_y[i] = new_centroid[1];
-
-		}
-	}
-
-	camera.StopGrabbing();
-
-	mean_x = std::accumulate(centroid_x.begin(), centroid_x.end(), 0.0) / centroid_x.size();
-	mean_y = std::accumulate(centroid_y.begin(), centroid_y.end(), 0.0) / centroid_y.size();
-
-
+	axes[0].SET_POINT = mean_x;
+	axes[1].SET_POINT = mean_y;
 
 }
 
@@ -246,18 +254,33 @@ void processing_thread::stabilize() {
 	}
 
 	std::vector<float> next_commands;
-	next_commands.reserve(2);
+	next_commands.resize(2);
+
+	msleep(50);
+	identify_initial_vals();
 
 	setup_stabilize();
 
-	teensy.write(QByteArray(1, INIT));
-	if (!teensy.waitForBytesWritten(100)) {
-		emit write_to_log(QString("Synchronization error: could not write"));
-		emit finished_analysis();
-		return;
+
+#ifdef STABILIZE_DEBUG
+
+	float new_centroid[2];
+	std::vector<double> noise(2000);
+	for (int i = 0; i < 2000; ++i) {
+		noise[i] = 0.3 * cos(2 * PI * 58 / 1000 * i) + 0.3 * cos(2 * PI * 77.2 / 1000 * i);
 	}
 
-	identify_initial_vals();
+	for (int i = 0; i < 500; ++i) {
+
+		new_centroid[1] = noise[i] + axes[1].target[0];
+		
+		next_commands[1] = axes[1].next_DAC(new_centroid[1]);
+		axes[1].post_step();
+	}
+
+
+
+#else
 
 	GrabResultPtr_t ptr;
 	const int height = camera.Height();
@@ -290,8 +313,9 @@ void processing_thread::stabilize() {
 		
 		}
 	}
-
 	camera.StopGrabbing();
+
+#endif
 	teensy.close();
 
 	emit finished_analysis();
@@ -483,7 +507,7 @@ void processing_thread::find_driving_freqs() {
 	gsl_vector_view y2 = gsl_vector_subvector(filteredy, _window / 2 / 5 / 3, _window / 2 / 5 / 3);
 
 	// Last third
-	gsl_vector_view y3 = gsl_vector_subvector(filteredy, 2 * _window / 2 / 5 / 3, _window / 2 / 5 / 3);
+	gsl_vector_view y3 = gsl_vector_subvector(filteredy, 2 * _window / 2 / 5 / 3, _window / 2 / 5 / 3 - 10 * _window / 2 / 500);
 
 	drive_freqs[0] = (gsl_vector_min_index(&y1.vector) + 5 * _window / 2 / 500) / 5;
 	drive_freqs[1] = (gsl_vector_min_index(&y2.vector) + _window / 2 / 5 / 3) / 5;
@@ -721,6 +745,8 @@ void processing_thread::learn_transfer_function() {
 		centroidy_d.pop_front();
 		tf_input_arr.pop_back();
 		
+
+
 		emit updateprogress(tf_window);
 		
 		std::vector<QVector<double>*> xy = { &centroidx_d,&centroidy_d };
@@ -730,7 +756,7 @@ void processing_thread::learn_transfer_function() {
 		
 		vec A_section(section_width - 2 * (n_taps / 2) - 2);
 		vec b_section(section_width - 2 * (n_taps / 2) - 2);
-		vec diff_section(section_width - 2 * (n_taps / 2) - 2);
+		vec diff_section(section_width - 2 * (n_taps / 2) - 1);
 		
 		sol.clear();
 		fit_params.clear();
@@ -741,7 +767,7 @@ void processing_thread::learn_transfer_function() {
 
 			vec A;
 			vec b;
-			vec diff;
+			vec DAC_diff;
 
 			for (int j = 0; j < 3; ++j) {
 
@@ -773,11 +799,16 @@ void processing_thread::learn_transfer_function() {
 					d += centroid_mean - filtered_mean;
 
 				
-				for (int i = 0; i < centroid_section.size() - 2; ++i) {
-					A_section(i) = tf_input_section[i + 2] - 2 * tf_input_section[i + 1] + tf_input_section[i];
-					b_section(i) = centroid_section[i + 2] - 2 * centroid_section[i + 1] + centroid_section[i];
-					diff_section(i) = tf_input_section[i + 2] - tf_input_section[i + 1];
-				}
+				A_section = diff(vec(tf_input_section),2);
+				b_section = diff(vec(centroid_section),2);
+				diff_section = diff(vec(tf_input_section));
+				diff_section.shed_row(0);
+
+				//for (int i = 0; i < centroid_section.size() - 2; ++i) {
+				//	A_section(i) = tf_input_section[i + 2] - 2 * tf_input_section[i + 1] + tf_input_section[i];
+				//	b_section(i) = centroid_section[i + 2] - 2 * centroid_section[i + 1] + centroid_section[i];
+				//	diff_section(i) = tf_input_section[i + 2] - tf_input_section[i + 1];
+				//}
 				
 				if (j == 1) {
 
@@ -796,7 +827,7 @@ void processing_thread::learn_transfer_function() {
 				// CONCATENATE SECTIONS FOR LEAST SQUARES
 				A = join_cols(A, A_section);
 				b = join_cols(b, b_section);
-				diff = join_cols(diff, diff_section);
+				DAC_diff = join_cols(DAC_diff, diff_section);
 			}
 
 			sol.push_back(as_scalar(solve(A, b)));
@@ -806,32 +837,31 @@ void processing_thread::learn_transfer_function() {
 			vec errors = A*(*(sol.end()-1)) - b;
 
 
-			mat coeffs = polyfit(diff, errors, 3);
+			mat coeffs = polyfit(DAC_diff, errors, 3);
 
 			std::array<double,4> fit = {coeffs(3), coeffs(2), coeffs(1), coeffs(0) };
 			//std::array<double,4> fit = {0, 0, 0, 0 };
 
-			model_RMSE.push_back(stddev(errors - polyval(coeffs, diff)));
+			model_RMSE.push_back(stddev(errors - polyval(coeffs, DAC_diff)));
 
 			fit_params.push_back(fit);
 		}
 
 		
-		emit write_to_log(" centroid_y'' = " + QString::number(sol[1]) + "x'' - (" +
-			QString::number(fit_params[1][3]) + "x'^3 + " +
-			QString::number(fit_params[1][2]) + "x'^2 + " +
-			QString::number(fit_params[1][1]) + "x' + " +
-			QString::number(fit_params[1][0]) + ") ");
+		emit write_to_log(" centroid_y'' = " + QString::number(sol[1], 'e', 2) + "x'' - (" +
+			QString::number(fit_params[1][3],'e', 2) + "x'^3 + " +
+			QString::number(fit_params[1][2], 'e', 2) + "x'^2 + " +
+			QString::number(fit_params[1][1], 'e',2) + "x' + " +
+			QString::number(fit_params[1][0], 'e', 2) + ") ");
 		
-		emit write_to_log(" centroid_x'' = " + QString::number(sol[0]) + "x'' - (" +
-			QString::number(fit_params[0][3]) + "x'^3 + " +
-			QString::number(fit_params[0][2]) + "x'^2 + " +
-			QString::number(fit_params[0][1]) + "x' + " +
-			QString::number(fit_params[0][0]) + ") ");
+		emit write_to_log(" centroid_x'' = " + QString::number(sol[0], 'e', 2) + "x'' - (" +
+			QString::number(fit_params[0][3], 'e', 2) + "x'^3 + " +
+			QString::number(fit_params[0][2], 'e', 2) + "x'^2 + " +
+			QString::number(fit_params[0][1], 'e', 2) + "x' + " +
+			QString::number(fit_params[0][0], 'e', 2) + ") ");
 
-		emit write_to_log(" ");
-		emit write_to_log(" x model RMSE: " + QString::number(model_RMSE[0]) + " px");
-		emit write_to_log(" y model RMSE: " + QString::number(model_RMSE[1]) + " px");
+		emit write_to_log(" x model RMSE: " + QString::number(model_RMSE[0],'g',2) + " px");
+		emit write_to_log(" y model RMSE: " + QString::number(model_RMSE[1],'g',2) + " px");
 	
 		emit update_tf_plot(to_plot[0], to_plot[1], to_plot[2], to_plot[3]);
 
@@ -844,7 +874,7 @@ void processing_thread::run() {
 
 	switch (plan) {
 	case STABILIZE:
-		//stabilize();
+		stabilize();
 		break;
 	case STREAM:
 		stream();

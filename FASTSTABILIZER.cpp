@@ -16,9 +16,11 @@ FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
 
 	create_fft_plots();
 	create_tf_plots();
+	
 }
 
 FASTSTABILIZER::~FASTSTABILIZER() {
+	proc_thread.camera.DestroyDevice();
 	PylonTerminate();
 }
 
@@ -488,7 +490,7 @@ void FASTSTABILIZER::update_procthread() {
 	for (int i = 0; i < x_filters.size(); ++i) {
 
 		if (!x_filters[i].ptr->data()->isEmpty()) {
-			proc_thread.x_tones.push_back(x_filters[i].graphdatapos * (_window / 2.0) * 500);
+			proc_thread.x_tones.push_back(x_filters[i].graphdatapos / (_window / 2.0) * (sampling_freq / 2));
 			proc_thread.x_N.push_back(x_filters[i].N);
 		}
 	}
@@ -497,7 +499,7 @@ void FASTSTABILIZER::update_procthread() {
 	for (int i = 0; i < y_filters.size(); ++i) {
 
 		if (!y_filters[i].ptr->data()->isEmpty()) {
-			proc_thread.y_tones.push_back(y_filters[i].graphdatapos * (_window / 2.0) * 500);
+			proc_thread.y_tones.push_back(y_filters[i].graphdatapos / (_window / 2.0) * (sampling_freq / 2));
 			proc_thread.y_N.push_back(y_filters[i].N);
 		}
 	}
