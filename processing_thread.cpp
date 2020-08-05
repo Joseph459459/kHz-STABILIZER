@@ -170,12 +170,12 @@ void processing_thread::setup_stabilize() {
 
 	if (x_N.size() > 0) {
 		axes[0].maxN = *std::max_element(x_N.begin(), x_N.end());
-		axes[0].noisy_signal = new float[axes[0].maxN]();
+		axes[0].noise = new float[axes[0].maxN + 1]();
 	}
 
 	if (y_N.size() > 0) {
 		axes[1].maxN = *std::max_element(y_N.begin(), y_N.end());
-		axes[1].noisy_signal = new float[axes[1].maxN]();
+		axes[1].noise = new float[axes[1].maxN + 1]();
 	}
 	for (int i = 0; i < 3; ++i) {
 
@@ -256,7 +256,9 @@ void processing_thread::stabilize() {
 	std::vector<float> next_commands;
 	next_commands.resize(2);
 
+	// Sleep for Actuator initialization
 	msleep(50);
+
 	identify_initial_vals();
 
 	setup_stabilize();
@@ -266,8 +268,8 @@ void processing_thread::stabilize() {
 
 	float new_centroid[2];
 	std::vector<double> noise(2000);
-	for (int i = 0; i < 2000; ++i) {
-		noise[i] = 0.3 * cos(2 * PI * 58 / 1000 * i) + 0.3 * cos(2 * PI * 77.2 / 1000 * i);
+	for (int i = 26; i < 2026; ++i) {
+		noise[i-26] = 0.3 * cos(2 * PI * 58 / 1000 * i) + 0.3 * cos(2 * PI * 77.2 / 1000 * i);
 	}
 
 	for (int i = 0; i < 500; ++i) {
@@ -275,6 +277,7 @@ void processing_thread::stabilize() {
 		new_centroid[1] = noise[i] + axes[1].target[0];
 		
 		next_commands[1] = axes[1].next_DAC(new_centroid[1]);
+
 		axes[1].post_step();
 	}
 
@@ -754,20 +757,21 @@ void processing_thread::learn_transfer_function() {
 
 		QVector<QVector<double>> to_plot;
 		
-		vec A_section(section_width - 2 * (n_taps / 2) - 2);
-		vec b_section(section_width - 2 * (n_taps / 2) - 2);
-		vec diff_section(section_width - 2 * (n_taps / 2) - 1);
-		
-		sol.clear();
+		vec DAC_in(section_width - 2 * (n_taps / 2));
+		vec centroid_in(section_width - 2 * (n_taps / 2));
+		vec DAC_diff(section_width - 2 * (n_taps / 2) - 1);
+		vec centroid_diff(section_width - 2 * (n_taps / 2) - 1);
+
 		fit_params.clear();
 		DAC_centroid_linear.clear();
 		std::vector<double> model_RMSE;
 
 		for (QVector<double>* centroid : xy) {
 
-			vec A;
-			vec b;
-			vec DAC_diff;
+			vec dDAC_full;
+			vec dcentroid_full;
+			vec DAC_full;
+			vec centroid_full;
 
 			for (int j = 0; j < 3; ++j) {
 
@@ -777,9 +781,11 @@ void processing_thread::learn_transfer_function() {
 
 				//-----------------------------------------------------
 
+				// FOR MEAN OFFSET
 				double sum = std::accumulate(centroid_section.begin(), centroid_section.end(),0.0);
 				double centroid_mean = sum / centroid_section.size();
 
+				// FILTER
 				harmonics_filter filter(drive_freqs[j], 2);
 
 				filter.filter_vec(centroid_section);
@@ -798,67 +804,62 @@ void processing_thread::learn_transfer_function() {
 				for (double& d : centroid_section)
 					d += centroid_mean - filtered_mean;
 
-				
-				A_section = diff(vec(tf_input_section),2);
-				b_section = diff(vec(centroid_section),2);
-				diff_section = diff(vec(tf_input_section));
-				diff_section.shed_row(0);
+				// CREATE ARMADILLO OBJECTS
+				DAC_in = vec(tf_input_section);
+				centroid_in = vec(centroid_section);
 
-				//for (int i = 0; i < centroid_section.size() - 2; ++i) {
-				//	A_section(i) = tf_input_section[i + 2] - 2 * tf_input_section[i + 1] + tf_input_section[i];
-				//	b_section(i) = centroid_section[i + 2] - 2 * centroid_section[i + 1] + centroid_section[i];
-				//	diff_section(i) = tf_input_section[i + 2] - tf_input_section[i + 1];
-				//}
+				DAC_diff = diff(vec(tf_input_section));
+				centroid_diff = diff(vec(centroid_section));
+				
 				
 				if (j == 1) {
 
 					to_plot.push_back(QVector<double>::fromStdVector(tf_input_section));
 					to_plot.push_back(QVector<double>::fromStdVector(centroid_section));
 
-					// LINEAR DAC CENTROID FIT FOR FINDING CORRECT ROOT OF 3RD ORDER POLYNOMIAL 
-					auto a = std::minmax_element(centroid_section.begin(), centroid_section.end());
-					std::array<float, 2> fit;
-					fit[0] = (*a.second - *a.first) / 2000;
-					fit[1] = (*a.second + *a.first - fit[0] * (4096)) / 2;
-					DAC_centroid_linear.push_back(fit);
+					//// LINEAR DAC CENTROID FIT FOR FINDING CORRECT ROOT OF 3RD ORDER POLYNOMIAL 
+					//auto a = std::minmax_element(centroid_section.begin(), centroid_section.end());
+					//std::array<float, 2> fit;
+					//fit[0] = (*a.second - *a.first) / 2000;
+					//fit[1] = (*a.second + *a.first - fit[0] * (4096)) / 2;
+					//DAC_centroid_linear.push_back(fit);
 
 				}
 
 				// CONCATENATE SECTIONS FOR LEAST SQUARES
-				A = join_cols(A, A_section);
-				b = join_cols(b, b_section);
-				DAC_diff = join_cols(DAC_diff, diff_section);
+				DAC_full = join_cols(DAC_full, DAC_in);
+				centroid_full = join_cols(centroid_full, centroid_in);
+				dDAC_full = join_cols(dDAC_full, DAC_diff);
+				dcentroid_full = join_cols(dcentroid_full, centroid_diff);
+
 			}
 
-			sol.push_back(as_scalar(solve(A, b)));
+			mat lin_sol = solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows)), centroid_full);
 
+			vec errors = centroid_full - lin_sol(0) * DAC_full + lin_sol(1);
+			errors.shed_row(0);
 
-			// ADDITIONAL VELOCITY DEPENDENT TERM FIT TO 3RD ORDER POLYNOMIAL
-			vec errors = A*(*(sol.end()-1)) - b;
+			mat correction = solve(join_rows(dDAC_full, dcentroid_full), errors);
 
-
-			mat coeffs = polyfit(DAC_diff, errors, 3);
-
-			std::array<double,4> fit = {coeffs(3), coeffs(2), coeffs(1), coeffs(0) };
-			//std::array<double,4> fit = {0, 0, 0, 0 };
-
-			model_RMSE.push_back(stddev(errors - polyval(coeffs, DAC_diff)));
+			std::array<double,4> fit = {lin_sol(0), lin_sol(1), correction(0), correction(1)};
 
 			fit_params.push_back(fit);
+
+			model_RMSE.push_back(stddev(errors - (correction(0)*dDAC_full + correction(1)*dcentroid_full)));
+
 		}
 
 		
-		emit write_to_log(" centroid_y'' = " + QString::number(sol[1], 'e', 2) + "x'' - (" +
-			QString::number(fit_params[1][3],'e', 2) + "x'^3 + " +
-			QString::number(fit_params[1][2], 'e', 2) + "x'^2 + " +
-			QString::number(fit_params[1][1], 'e',2) + "x' + " +
-			QString::number(fit_params[1][0], 'e', 2) + ") ");
+		emit write_to_log(" centroid_y = " + QString::number(fit_params[1][0], 'e', 2) + "x + " +
+			QString::number(fit_params[1][1], 'e', 2) + " - (" +
+			QString::number(fit_params[1][2], 'e', 2) + "x' + " +
+			QString::number(fit_params[1][3], 'e', 2) + "centroid_y') ");
 		
-		emit write_to_log(" centroid_x'' = " + QString::number(sol[0], 'e', 2) + "x'' - (" +
-			QString::number(fit_params[0][3], 'e', 2) + "x'^3 + " +
-			QString::number(fit_params[0][2], 'e', 2) + "x'^2 + " +
-			QString::number(fit_params[0][1], 'e', 2) + "x' + " +
-			QString::number(fit_params[0][0], 'e', 2) + ") ");
+		emit write_to_log(" centroid_x = " + QString::number(fit_params[1][0], 'e', 2) + "x + " +
+			QString::number(fit_params[1][1], 'e', 2) + " - (" +
+			QString::number(fit_params[1][2], 'e', 2) + "x' + " +
+			QString::number(fit_params[1][3], 'e', 2) + "centroid_x'') ");
+
 
 		emit write_to_log(" x model RMSE: " + QString::number(model_RMSE[0],'g',2) + " px");
 		emit write_to_log(" y model RMSE: " + QString::number(model_RMSE[1],'g',2) + " px");

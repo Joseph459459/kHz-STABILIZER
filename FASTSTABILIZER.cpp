@@ -240,17 +240,12 @@ void FASTSTABILIZER::update_tf_plot(QVector<double> DAC_x, QVector<double> filte
 	
 	for (int i = 2; i < filtered_y.size(); ++i) {
 		
-		sim_centroid_y[i - 2] = proc_thread.sol[1] * (DAC_y[i] - 2 * DAC_y[i - 1] + DAC_y[i - 2]) + 2 * filtered_y[i - 1] - filtered_y[i - 2];
+		sim_centroid_y[i - 2] = proc_thread.fit_params[1][0] * DAC_y[i]  + proc_thread.fit_params[1][1] -  
+			(proc_thread.fit_params[1][2] * (DAC_y[i] + DAC_y[i - 1]) +  proc_thread.fit_params[1][3] * (filtered_y[i] - filtered_y[i - 1]));
 
-		for (int j = 0; j < 4; ++j)
-			sim_centroid_y[i - 2] -= proc_thread.fit_params[1][j] * std::pow(DAC_y[i] - DAC_y[i - 1], j);
+		sim_centroid_x[i - 2] = proc_thread.fit_params[0][0] * DAC_x[i] + proc_thread.fit_params[0][1] -
+			(proc_thread.fit_params[0][2] * (DAC_x[i] + DAC_y[i - 1]) + proc_thread.fit_params[0][3] * (filtered_x[i] - filtered_x[i - 1]));
 
-
-		sim_centroid_x[i - 2] = proc_thread.sol[0] * (DAC_x[i] - 2 * DAC_x[i - 1] + DAC_x[i - 2]) + 2 * filtered_x[i - 1] - filtered_x[i - 2];
-		
-		for (int j = 1; j < 4; ++j)
-			sim_centroid_x[i - 2] -= proc_thread.fit_params[0][j] * std::pow(DAC_x[i] - DAC_x[i - 1], j);
-		
 
 	}
 

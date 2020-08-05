@@ -25,7 +25,6 @@ public:
 	QVector<double> centroidx_d;
 	QVector<double> centroidy_d;
 
-	std::vector<double> sol;
 	std::vector<std::array<double, 4>> fit_params;
 
 	Camera_t camera;
