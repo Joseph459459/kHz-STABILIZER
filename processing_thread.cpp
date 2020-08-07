@@ -12,7 +12,7 @@
 using namespace arma;
 
 #define STABILIZE_DEBUG
-
+#undef STABILIZE_DEBUG
 struct harmonics_filter {
 
 	harmonics_filter(int freq, int half_bandwidth) {
@@ -84,7 +84,6 @@ processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
 	PylonInitialize();
 
 	fit_params.reserve(2);
-	sol.reserve(2);
 
 	CDeviceInfo info;
 	info.SetDeviceClass(Camera_t::DeviceClass());
@@ -128,8 +127,10 @@ void processing_thread::identify_initial_vals() {
 
 			centroid(ptr, height, width, new_centroid, threshold);
 
-			centroid_x[i] = new_centroid[0];
-			centroid_y[i] = new_centroid[1];
+			centroid_x[i] = width - new_centroid[0];
+			centroid_y[i] = height - new_centroid[1];
+
+			qDebug() << centroid_y[i];
 
 		}
 	}
@@ -138,7 +139,6 @@ void processing_thread::identify_initial_vals() {
 
 	mean_x = std::accumulate(centroid_x.begin(), centroid_x.end(), 0.0) / centroid_x.size();
 	mean_y = std::accumulate(centroid_y.begin(), centroid_y.end(), 0.0) / centroid_y.size();
-
 
 
 }
@@ -160,12 +160,11 @@ void processing_thread::setup_stabilize() {
 		axes[1].N[i] = y_N[i];
 	}
 
-	axes[0].tf_params[0] = sol[0];
-	axes[1].tf_params[0] = sol[1];
 
-	for (i = 1; i < 5; ++i) {
-		axes[0].tf_params[i] = fit_params[0][i - 1];
-		axes[1].tf_params[i] = fit_params[1][i - 1];
+
+	for (i = 0; i < 4; ++i) {
+		axes[0].tf_params[i] = fit_params[0][i];
+		axes[1].tf_params[i] = fit_params[1][i];
 	}
 
 	if (x_N.size() > 0) {
@@ -179,19 +178,14 @@ void processing_thread::setup_stabilize() {
 	}
 	for (int i = 0; i < 3; ++i) {
 
-		axes[0].target[i] = mean_x;
-		axes[1].target[i] = mean_y;
+		axes[0].target[i] = mean_vals[0];
+		axes[1].target[i] = mean_vals[1];
 
 		axes[0].DAC_cmds[i] = 2048;
 		axes[1].DAC_cmds[i] = 2048;
 
 	}
 
-	axes[0].m = DAC_centroid_linear[0][0];
-	axes[0].b = DAC_centroid_linear[0][1];
-
-	axes[1].m = DAC_centroid_linear[1][0];
-	axes[1].b = DAC_centroid_linear[1][1];
 
 	axes[0].SET_POINT = mean_x;
 	axes[1].SET_POINT = mean_y;
@@ -253,16 +247,18 @@ void processing_thread::stabilize() {
 		return;
 	}
 
-	std::vector<float> next_commands;
-	next_commands.resize(2);
+	int next_commands[2];
+	
+
+	teensy.write(QByteArray(1, STABILIZE));
+	teensy.waitForBytesWritten(100);
 
 	// Sleep for Actuator initialization
-	msleep(50);
+	msleep(80);
 
 	identify_initial_vals();
 
 	setup_stabilize();
-
 
 #ifdef STABILIZE_DEBUG
 
@@ -281,9 +277,9 @@ void processing_thread::stabilize() {
 		axes[1].post_step();
 	}
 
-
-
 #else
+
+	std::vector<double> corrected(1000);
 
 	GrabResultPtr_t ptr;
 	const int height = camera.Height();
@@ -292,27 +288,26 @@ void processing_thread::stabilize() {
 
 	camera.MaxNumBuffer.SetValue(5);
 	camera.StartGrabbing();
-	int k;
+	int k = 0;
+	acquiring = true;
 
 	while (acquiring) {
 
 		if (camera.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
 
-
 			centroid(ptr, height, width, new_centroid, threshold);
 
+			next_commands[1] = axes[1].next_DAC(height - new_centroid[1]);
+			
+			teensy.write(QByteArray(1, SYNC_FLAG));
+			teensy.write((const char*)&next_commands[1],4);
+			teensy.waitForBytesWritten(10);
 
-			for (k = 0; k < 2; ++k) {
-				next_commands[k] = axes[k].next_DAC(new_centroid[k]);
-			}
+			axes[1].post_step();
 
-			//teensy.write
-
-
-			for (k = 0; k < 2; ++k) {
-				axes[k].post_step();
-		
-			}
+			++k;
+			if (k == 1000)
+				acquiring = false;
 		
 		}
 	}
@@ -342,6 +337,10 @@ void processing_thread::stream() {
 		msleep(20);
 		if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
 			emit sendImagePtr(ptr);
+
+			std::array<float, 2> p = centroid(ptr, threshold);
+
+			//qDebug() << p[1];
 		}
 	}
 	msleep(20);
@@ -699,7 +698,6 @@ void processing_thread::learn_transfer_function() {
 		}
 
 		if (teensy.waitForReadyRead(1000)) {
-
 			teensy.clear();
 		}
 		else {
@@ -712,7 +710,10 @@ void processing_thread::learn_transfer_function() {
 
 		int missed = 0;
 		int i = 0;
-		
+		const int height = camera.Height();
+		const int width = camera.Width();
+		float new_centroid[2];
+
 		camera.MaxNumBuffer.SetValue(tf_window);
 		camera.StartGrabbing();
 
@@ -720,10 +721,10 @@ void processing_thread::learn_transfer_function() {
 
 			if (camera.RetrieveResult(2, ptr, Pylon::TimeoutHandling_Return)) {
 				
-				std::array<float,2> out = centroid(ptr, threshold);
+				centroid(ptr,height,width,new_centroid,threshold);
 				
-				centroidx_d[i] = ptr->GetWidth() - out[0];
-				centroidy_d[i] = ptr->GetHeight() - out[1];
+				centroidx_d[i] = width - new_centroid[0];
+				centroidy_d[i] = height - new_centroid[1];
 				
 				teensy.write(QByteArray(1, SYNC_FLAG));
 				if (!teensy.waitForBytesWritten(100)) {
@@ -747,8 +748,6 @@ void processing_thread::learn_transfer_function() {
 		centroidx_d.pop_front();
 		centroidy_d.pop_front();
 		tf_input_arr.pop_back();
-		
-
 
 		emit updateprogress(tf_window);
 		
@@ -773,6 +772,13 @@ void processing_thread::learn_transfer_function() {
 			vec DAC_full;
 			vec centroid_full;
 
+			p = centroid->data();
+
+			double sum = std::accumulate(centroid->begin(), centroid->end(), 0.0);
+			double centroid_mean = sum / centroid->size();
+
+			mean_vals.push_back(centroid_mean);
+
 			for (int j = 0; j < 3; ++j) {
 
 				// EXTRACT SECTION
@@ -780,11 +786,7 @@ void processing_thread::learn_transfer_function() {
 				std::vector<double> centroid_section( (double*)centroid->data() + j * section_width, (double*)centroid->data() + (j + 1) * section_width);
 
 				//-----------------------------------------------------
-
-				// FOR MEAN OFFSET
-				double sum = std::accumulate(centroid_section.begin(), centroid_section.end(),0.0);
-				double centroid_mean = sum / centroid_section.size();
-
+				
 				// FILTER
 				harmonics_filter filter(drive_freqs[j], 2);
 
@@ -817,18 +819,15 @@ void processing_thread::learn_transfer_function() {
 					to_plot.push_back(QVector<double>::fromStdVector(tf_input_section));
 					to_plot.push_back(QVector<double>::fromStdVector(centroid_section));
 
-					//// LINEAR DAC CENTROID FIT FOR FINDING CORRECT ROOT OF 3RD ORDER POLYNOMIAL 
-					//auto a = std::minmax_element(centroid_section.begin(), centroid_section.end());
-					//std::array<float, 2> fit;
-					//fit[0] = (*a.second - *a.first) / 2000;
-					//fit[1] = (*a.second + *a.first - fit[0] * (4096)) / 2;
-					//DAC_centroid_linear.push_back(fit);
-
 				}
 
 				// CONCATENATE SECTIONS FOR LEAST SQUARES
+				DAC_in.shed_row(0);
+				centroid_in.shed_row(0);
+
 				DAC_full = join_cols(DAC_full, DAC_in);
 				centroid_full = join_cols(centroid_full, centroid_in);
+			
 				dDAC_full = join_cols(dDAC_full, DAC_diff);
 				dcentroid_full = join_cols(dcentroid_full, centroid_diff);
 
@@ -836,8 +835,7 @@ void processing_thread::learn_transfer_function() {
 
 			mat lin_sol = solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows)), centroid_full);
 
-			vec errors = centroid_full - lin_sol(0) * DAC_full + lin_sol(1);
-			errors.shed_row(0);
+			vec errors = centroid_full - (lin_sol(0) * DAC_full + lin_sol(1));
 
 			mat correction = solve(join_rows(dDAC_full, dcentroid_full), errors);
 
@@ -845,7 +843,7 @@ void processing_thread::learn_transfer_function() {
 
 			fit_params.push_back(fit);
 
-			model_RMSE.push_back(stddev(errors - (correction(0)*dDAC_full + correction(1)*dcentroid_full)));
+			model_RMSE.push_back(sqrt(arma::sum(square(errors - (correction(0)*dDAC_full + correction(1)*dcentroid_full)))/ dcentroid_full.n_rows));
 
 		}
 

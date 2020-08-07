@@ -9,6 +9,5 @@ int main(int argc, char *argv[])
 	cameraselect w;
 	w.show();
 
-
 	return a.exec();
 }

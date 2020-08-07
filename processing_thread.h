@@ -30,6 +30,7 @@ public:
 	Camera_t camera;
 	std::atomic<bool> acquiring = false;
 
+	double* p;
 	float fft_outx[_window];
 	float fft_outy[_window];
 	QVector<double> fftx;
@@ -49,6 +50,7 @@ public:
 	std::vector<int> y_N;
 	std::vector<float> y_tones;
 
+	std::vector<float> mean_vals;
 	std::vector<std::array<float, 2>> DAC_centroid_linear;
 
 	float mean_x;

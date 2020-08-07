@@ -85,7 +85,7 @@ void stabilize() {
 	while (true) {
 
 		while (!Serial.available()) {
-			if (++timeout > 2e7) {
+			if (++timeout > 2e8) {
 				taper_down();
 				timeout = 0;
 				return;
@@ -98,12 +98,11 @@ void stabilize() {
 		}
 		else {
 
-			Serial.readBytes((char*)in, 8);
+			Serial.readBytes((char*)in, 4);
 
+			//analogWriteDAC0(in[0]);
 
-			analogWriteDAC0(in[0]);
-
-			analogWriteDAC1(in[1]);
+			analogWriteDAC1(in[0]);
 
 
 		}

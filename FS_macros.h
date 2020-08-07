@@ -3,7 +3,7 @@
 
 #define _window 5000
 
-#define sampling_freq static_cast<float>(1000.0)
+#define sampling_freq 1000.0
 #define PI 3.14159265358979323846
 
 #define STREAM 0
@@ -34,17 +34,17 @@ inline void tf_input_(T* tf_input_arr, uint16_t yDACmax, float* freqs) {
 
 	for (i = 0; i < section_width; ++i) {
 
-		tf_input_arr[i + idx] = round(2048 + 1000 * sinf(2 * PI * freqs[0] / 1000 * i));
+		tf_input_arr[i + idx] = round(2048 + (500 + i) * sinf(2 * PI * freqs[0] / 1000 * i));
 	}
 	idx += section_width;
 	
 	for (i = 0; i < section_width; ++i) {
-		tf_input_arr[i + idx] = round(2048 + 1000 * sinf(2 * PI * freqs[1] / 1000 * i));
+		tf_input_arr[i + idx] = round(2048 + (1500 - i) * sinf(2 * PI * freqs[1] / 1000 * i));
 	}
 	idx += section_width;
 
 	for (i = 0; i < section_width; ++i) {
-		tf_input_arr[i + idx] = round(2048 + 1000 * sinf(2 * PI * freqs[2] / 1000 * i));
+		tf_input_arr[i + idx] = round(2048 + (500 + i) * sinf(2 * PI * freqs[2] / 1000 * i));
 	}
 	idx += section_width;
 

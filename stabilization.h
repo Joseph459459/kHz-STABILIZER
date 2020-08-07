@@ -42,7 +42,6 @@ struct axes_cell {
 	}
 
 	int next_DAC(float in) {
-
 		noise_element = in - target[0];
 
 		differential = 0;
@@ -63,26 +62,12 @@ struct axes_cell {
 			differential += mag * (cosf(w[j] * (N[j]) + phase) - cosf(w[j] * (N[j] - 1) + phase));
 		}
 
-		target[0] = 2 * SET_POINT - (in + differential);
+		//target[0] = 2 * SET_POINT - (in + differential);
+		target[0] -= differential;
 
-
-
-
-		//num_sols = gsl_poly_solve_cubic(tf_params[3] / tf_params[4],
-		//	(tf_params[3] - tf_params[0]) / tf_params[4],
-		//	(tf_params[1] + (target[0] - 2 * target[1] + target[2]) - tf_params[0] * (DAC_cmds[2] - DAC_cmds[1])) / tf_params[4],
-		//	solved_cubic, solved_cubic + 1, solved_cubic + 2);
-		//if (num_sols == 1) {
-		//	DAC_cmds[0] = round(solved_cubic[0]) + DAC_cmds[1];
-		//}
-		//else {
-		//	// FIND ROOT CLOSEST TO THE LINEAR APPROXIMATE COMMAND
-		//	for (int i = 0; i < 3; ++i) {
-		//		temp_cmds[i] = round(solved_cubic[i]) + DAC_cmds[1] - (target[0] - b) / m;
-		//		int* cmd_ptr = std::min_element(temp_cmds, temp_cmds + 3);
-		//		DAC_cmds[0] = round(solved_cubic[cmd_ptr - temp_cmds]) + DAC_cmds[1];
-		//	}
-		//}
+		  
+		DAC_cmds[0] = round((target[0] * (1 + tf_params[3]) - tf_params[3] * target[1] - tf_params[2] * DAC_cmds[1] - tf_params[1])
+			/ (tf_params[0] - tf_params[2]));
 
 
 		qDebug() << DAC_cmds[0];

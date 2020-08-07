@@ -244,7 +244,7 @@ void FASTSTABILIZER::update_tf_plot(QVector<double> DAC_x, QVector<double> filte
 			(proc_thread.fit_params[1][2] * (DAC_y[i] + DAC_y[i - 1]) +  proc_thread.fit_params[1][3] * (filtered_y[i] - filtered_y[i - 1]));
 
 		sim_centroid_x[i - 2] = proc_thread.fit_params[0][0] * DAC_x[i] + proc_thread.fit_params[0][1] -
-			(proc_thread.fit_params[0][2] * (DAC_x[i] + DAC_y[i - 1]) + proc_thread.fit_params[0][3] * (filtered_x[i] - filtered_x[i - 1]));
+			(proc_thread.fit_params[0][2] * (DAC_x[i] + DAC_x[i - 1]) + proc_thread.fit_params[0][3] * (filtered_x[i] - filtered_x[i - 1]));
 
 
 	}
