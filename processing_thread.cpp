@@ -107,18 +107,15 @@ void processing_thread::adjust_framerate() {
 
 void processing_thread::identify_initial_vals() {
 
-	msleep(50);
-
 	GrabResultPtr_t ptr;
 	const int height = camera.Height();
 	const int width = camera.Width();
 
 	camera.MaxNumBuffer.SetValue(5);
 	camera.StartGrabbing();
-	int k;
 
-	std::vector<float> centroid_x(2000);
-	std::vector<float> centroid_y(2000);
+	std::vector<double> centroid_x(2000);
+	std::vector<double> centroid_y(2000);
 	float new_centroid[2];
 
 	for (int i = 0; i < 2000; ++i) {
@@ -140,7 +137,9 @@ void processing_thread::identify_initial_vals() {
 	mean_x = std::accumulate(centroid_x.begin(), centroid_x.end(), 0.0) / centroid_x.size();
 	mean_y = std::accumulate(centroid_y.begin(), centroid_y.end(), 0.0) / centroid_y.size();
 
-
+	
+	qDebug() << "before stabilize mean";
+	qDebug() << mean_y;
 }
 
 void processing_thread::setup_stabilize() {
@@ -187,8 +186,8 @@ void processing_thread::setup_stabilize() {
 	}
 
 
-	axes[0].SET_POINT = mean_x;
-	axes[1].SET_POINT = mean_y;
+	axes[0].SET_POINT = mean_vals[0];
+	axes[1].SET_POINT = mean_vals[1];
 
 }
 
@@ -274,6 +273,11 @@ void processing_thread::stabilize() {
 		
 		next_commands[1] = axes[1].next_DAC(new_centroid[1]);
 
+		qDebug() << axes[1].DAC_cmds[0];
+		qDebug() << axes[1].target[0];
+		qDebug() << axes[1].noise_element;
+		qDebug() << new_centroid[1];
+
 		axes[1].post_step();
 	}
 
@@ -303,10 +307,16 @@ void processing_thread::stabilize() {
 			teensy.write((const char*)&next_commands[1],4);
 			teensy.waitForBytesWritten(10);
 
+
+			qDebug() << axes[1].DAC_cmds[0];
+			qDebug() << axes[1].target[0];
+			qDebug() << axes[1].noise_element;
+			qDebug() << height - new_centroid[1];
+
 			axes[1].post_step();
 
 			++k;
-			if (k == 1000)
+			if (k == 3000)
 				acquiring = false;
 		
 		}
@@ -332,6 +342,7 @@ void processing_thread::stream() {
 	camera.StartGrabbing();
 	GrabResultPtr_t ptr;
 	acquiring = true;
+	int k = 0;
 
 	while (acquiring) {
 		msleep(20);
@@ -340,7 +351,10 @@ void processing_thread::stream() {
 
 			std::array<float, 2> p = centroid(ptr, threshold);
 
-			//qDebug() << p[1];
+			if (! (k % 100))
+				qDebug() << ptr->GetHeight() - p[1];
+
+			k++;
 		}
 	}
 	msleep(20);
@@ -479,7 +493,7 @@ void processing_thread::analyze_spectrum() {
 	fftwf_destroy_plan(planx);
 	fftwf_destroy_plan(plany);
 
-
+	
 	emit finished_analysis();
 
 }
@@ -579,6 +593,8 @@ void processing_thread::find_actuator_range() {
 		if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
 
 			std::array<double, 6> out = allparams(ptr, threshold);
+
+			qDebug() << ptr->GetHeight() - out[1];
 
 			if (!isnan(out[3]) && out[3] < camera.Height() && (out[1] - out[3] / 2) < 0) {
 				teensy.write(QByteArray(1, SYNC_FLAG));
@@ -737,9 +753,6 @@ void processing_thread::learn_transfer_function() {
 				++missed;
 			}
 
-			if (i % (tf_window / 100) == 0) {
-				emit updateprogress(i);
-			}
 		}
 
 		camera.StopGrabbing();
@@ -777,6 +790,9 @@ void processing_thread::learn_transfer_function() {
 			double sum = std::accumulate(centroid->begin(), centroid->end(), 0.0);
 			double centroid_mean = sum / centroid->size();
 
+			qDebug() << "TF mean";
+			qDebug() << centroid_mean;
+
 			mean_vals.push_back(centroid_mean);
 
 			for (int j = 0; j < 3; ++j) {
@@ -801,6 +817,9 @@ void processing_thread::learn_transfer_function() {
 
 				sum = std::accumulate(centroid_section.begin(), centroid_section.end(),0.0);
 				double filtered_mean = sum / centroid_section.size();
+				
+				qDebug() << "filtered mean";
+				qDebug() << filtered_mean;
 
 				// FIX MEAN OFFSET INTRODUCED BY FILTER
 				for (double& d : centroid_section)

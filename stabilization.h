@@ -35,13 +35,18 @@ struct axes_cell {
 	int DAC_cmds[3] = { 0 };
 	float SET_POINT;
 	int temp_cmds[3];
+	
+#define P_ctrl_samples 10
 
+	float running_avg[P_ctrl_samples];
+	float error = 0;
 
 	int Wrap(int N, int L, int H) {
 		H = H - L + 1; return (N - L + (N < L) * H) % H + L;
 	}
 
 	int next_DAC(float in) {
+		
 		noise_element = in - target[0];
 
 		differential = 0;
@@ -62,18 +67,20 @@ struct axes_cell {
 			differential += mag * (cosf(w[j] * (N[j]) + phase) - cosf(w[j] * (N[j] - 1) + phase));
 		}
 
+		running_avg[n % P_ctrl_samples] = in / static_cast<float>(P_ctrl_samples);
+
+		if (n > maxN + P_ctrl_samples) {
+			error = std::accumulate(running_avg, running_avg + P_ctrl_samples, 0.f) - SET_POINT;
+		}
+
 		//target[0] = 2 * SET_POINT - (in + differential);
 		target[0] -= differential;
-
+		target[0] -= error/static_cast<float>(P_ctrl_samples);
 		  
-		DAC_cmds[0] = round((target[0] * (1 + tf_params[3]) - tf_params[3] * target[1] - tf_params[2] * DAC_cmds[1] - tf_params[1])
+		DAC_cmds[0]  = round((target[0] * (1 + tf_params[3]) - tf_params[3] * target[1] - tf_params[2] * DAC_cmds[1] - tf_params[1])
 			/ (tf_params[0] - tf_params[2]));
 
 
-		qDebug() << DAC_cmds[0];
-		qDebug() << target[0];
-		qDebug() << noise_element;
-		qDebug() << in;
 
 		return DAC_cmds[0];
 
@@ -81,12 +88,10 @@ struct axes_cell {
 
 	void post_step() {
 
-
 		DAC_cmds[2] = DAC_cmds[1];
 		DAC_cmds[1] = DAC_cmds[0];
 		target[2] = target[1];
 		target[1] = target[0];
-
 
 		++n;
 
@@ -94,7 +99,7 @@ struct axes_cell {
 			old_centroid[j] = noise[Wrap(n + 1 - N[j], 0, maxN)];
 		}
 
-		noise[Wrap(n, 0, maxN)] = noise_element;
+		noise[Wrap(n,0,maxN)] = noise_element;
 
 	}
 };

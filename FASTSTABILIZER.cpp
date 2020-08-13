@@ -40,6 +40,22 @@ void FASTSTABILIZER::on_stopButton_clicked() {
 
 void FASTSTABILIZER::on_stabilizeButton_clicked() {
 	
+	bool no_filters = true;
+	
+	for (int i = 0; i < 6; ++i) {
+		no_filters = y_filters[i].ptr->data()->isEmpty();
+		if (!no_filters)
+			break;
+		no_filters = x_filters[i].ptr->data()->isEmpty();
+		if (!no_filters)
+			break;
+	}
+
+	if (no_filters) {
+		error_handling("No filters placed.");
+		return;
+	}
+
 	CV->safe_thread_close();
 
 	CV->close();
@@ -51,6 +67,7 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 }
 
 void FASTSTABILIZER::error_handling(QString q) {
+
 	ui.console->appendPlainText(q);
 	ui.console->appendPlainText(QString(" "));
 	ui.stabilizeButton->setChecked(false);
@@ -224,7 +241,7 @@ void FASTSTABILIZER::update_fft_plot() {
 	ui.plot->axisRect(1)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
 	ui.plot->graph(1)->rescaleKeyAxis();
 	ui.plot->replot();
-
+	
 }
 
 void FASTSTABILIZER::update_tf_plot(QVector<double> DAC_x, QVector<double> filtered_x, QVector<double> DAC_y, QVector<double> filtered_y) {

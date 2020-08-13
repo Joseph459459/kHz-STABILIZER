@@ -224,7 +224,6 @@ void camview::finished_analysis()
 
 	safe_thread_close();
 
-
 	proc_thread->plan = STREAM;
 	proc_thread->start();
 
@@ -241,10 +240,13 @@ void camview::on_noiseSpectrumButton_clicked() {
 	progressbox->show();
 	progressbox->raise();
 
+	ui.transferFunctionButton->setEnabled(true);
+
 	proc_thread->plan = SPECTRUM;
 	this->setDisabled(true);
 	progressbox->setDisabled(false);
 	proc_thread->start(QThread::TimeCriticalPriority);
+
 }
 
 void camview::on_actuatorRangeButton_clicked() {
