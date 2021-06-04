@@ -15,6 +15,7 @@
 #define CONTINUE 6
 #define INIT 7
 #define SYNC_FLAG 254
+#define bit_depth 4096
 
 #define n_taps 301
 #define section_width 1000

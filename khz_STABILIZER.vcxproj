@@ -43,8 +43,8 @@
     <Import Project="$(QtMsBuild)\qt_defaults.props" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
-    <QtInstall>5.14.2</QtInstall>
-    <QtModules>concurrent;core;gui;printsupport;qml;serialport;widgets</QtModules>
+    <QtInstall>5.14.2_msvc2017_64</QtInstall>
+    <QtModules>concurrent;core;gui;printsupport;qml;serialport;widgets;winextras</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
     <QtQMLDebugEnable>false</QtQMLDebugEnable>
     <QtHeaderSearchPath>
@@ -90,9 +90,12 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>C:\armadillo\examples\lib_win64;C:\NLopt;C:\fftw;$(PYLON_DEV_DIR)\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libfftw3f-3.lib;libnlopt-0.lib;blas_win64_MT.lib;lapack_win64_MT.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\fftw;$(PYLON_DEV_DIR)\lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libfftw3f-3.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <QtMoc>
+      <ParallelProcess>true</ParallelProcess>
+    </QtMoc>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -116,7 +119,7 @@
   <ItemGroup>
     <None Include="50849.svg" />
     <None Include="63468.svg" />
-    <None Include="khz_pointing.pptx" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="barf.png" />
@@ -146,5 +149,16 @@
     <Import Project="$(QtMsBuild)\qt.targets" />
   </ImportGroup>
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="packages\GSL2.6.0-x64-msvc.1.0.4\build\native\GSL2.6.0-x64-msvc.targets" Condition="Exists('packages\GSL2.6.0-x64-msvc.1.0.4\build\native\GSL2.6.0-x64-msvc.targets')" />
+    <Import Project="packages\OpenBLAS.0.2.14.1\build\native\openblas.targets" Condition="Exists('packages\OpenBLAS.0.2.14.1\build\native\openblas.targets')" />
+    <Import Project="packages\armadillo-code.7.800.2\build\native\armadillo-code.targets" Condition="Exists('packages\armadillo-code.7.800.2\build\native\armadillo-code.targets')" />
   </ImportGroup>
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!Exists('packages\GSL2.6.0-x64-msvc.1.0.4\build\native\GSL2.6.0-x64-msvc.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\GSL2.6.0-x64-msvc.1.0.4\build\native\GSL2.6.0-x64-msvc.targets'))" />
+    <Error Condition="!Exists('packages\OpenBLAS.0.2.14.1\build\native\openblas.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\OpenBLAS.0.2.14.1\build\native\openblas.targets'))" />
+    <Error Condition="!Exists('packages\armadillo-code.7.800.2\build\native\armadillo-code.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\armadillo-code.7.800.2\build\native\armadillo-code.targets'))" />
+  </Target>
 </Project>

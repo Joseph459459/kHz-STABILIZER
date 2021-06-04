@@ -26,8 +26,11 @@ void setup()
 {
 	pinMode(LED_BUILTIN, OUTPUT);
 
-	adc->setAveraging(16);
-	adc->setResolution(12);
+	adc->adc0->setAveraging(16);
+	adc->adc0->setResolution(12);
+
+	adc->adc1->setAveraging(16);
+	adc->adc1->setResolution(12);
 
 	analogWriteResolution(12);
 
@@ -71,11 +74,7 @@ void post_setup() {
 
 void loop() {
 
-
-
-
 }
-
 
 
 void stabilize() {
@@ -100,10 +99,10 @@ void stabilize() {
 
 			Serial.readBytes((char*)in, 4);
 
-			//analogWriteDAC0(in[0]);
-
 			analogWriteDAC1(in[0]);
 
+			//analogWriteDAC1(switch_ ? 2000 : 0);
+			//switch_ = !switch_;
 
 		}
 	}
@@ -150,8 +149,9 @@ void learn_tf() {
 	}
 	
 	taper_down();
-
 }
+
+bool switch_ = false;
 
 void find_range() {
 
@@ -159,8 +159,8 @@ void find_range() {
 
 	yDACmax = 0;
 
-	int currx = 0;
-	int curry = 0;
+	int curr_x = 0;
+	int curr_y = 0;
 
 	while (true) {
 
@@ -181,16 +181,16 @@ void find_range() {
 
 		else {
 			if (Serial.read() == STOP_FLAG) {
-				yDACmax = curry - 5;
+				yDACmax = curr_y - 5;
 				Serial.write((byte)STOP_FLAG);
 				Serial.write((const byte*)&yDACmax, 2);
 				break;
 			}
 			else {
-				analogWriteDAC1(curry);
-				curry += 5;
+				analogWriteDAC1(curr_y);
+				curr_y += 5;
 
-				if (curry >= 4095) {
+				if (curr_y >= 4095) {
 					yDACmax = 4095;
 					Serial.write((byte)STOP_FLAG);
 					Serial.write((const byte*)&yDACmax, 2);
@@ -207,9 +207,9 @@ void find_range() {
 
 inline void taper_down() {
 
-	int tapering_val_y = adc->adc0->analogRead(A9);
-	int tapering_val_x = adc->adc1->analogRead(A3);
-
+	int tapering_val_y = adc->adc0->analogRead(A3);
+	int tapering_val_x = adc->adc1->analogRead(A6);
+	
 	while (tapering_val_y > 0) {
 		analogWriteDAC1(--tapering_val_y);
 		delayMicroseconds(100);

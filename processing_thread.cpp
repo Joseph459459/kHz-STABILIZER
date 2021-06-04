@@ -1,5 +1,5 @@
 #include "processing_thread.h"
-#include "nlopt.hpp"
+//#include "nlopt.hpp"
 #include <armadillo>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_filter.h>
@@ -15,12 +15,12 @@ using namespace arma;
 #undef STABILIZE_DEBUG
 struct harmonics_filter {
 
-	harmonics_filter(int freq, int half_bandwidth) {
+	harmonics_filter(int freq, int filter_halfwidth) {
 
 
-		fundamental = new Filter(BPF, n_taps, 1000, freq - half_bandwidth, freq + half_bandwidth);
-		third = new Filter(BPF, n_taps, 1000, freq + 2 * freq - half_bandwidth, freq + 2 * freq + half_bandwidth);
-		fifth = new Filter(BPF, n_taps, 1000, freq + 4 * freq - half_bandwidth, freq + 4 * freq + half_bandwidth);
+		fundamental = new Filter(BPF, n_taps, 1000, freq - filter_halfwidth, freq + filter_halfwidth);
+		third = new Filter(BPF, n_taps, 1000, freq + 2 * freq - filter_halfwidth, freq + 2 * freq + filter_halfwidth);
+		fifth = new Filter(BPF, n_taps, 1000, freq + 4 * freq - filter_halfwidth, freq + 4 * freq + filter_halfwidth);
 
 
 		//passband_ripple_compensate
@@ -31,7 +31,7 @@ struct harmonics_filter {
 
 		for (int freq : my_freqs) {
 		
-			Filter* temp = new Filter(BPF, n_taps, 1000, freq - half_bandwidth, freq + half_bandwidth);
+			Filter* temp = new Filter(BPF, n_taps, 1000, freq - filter_halfwidth, freq + filter_halfwidth);
 
 			for (int i = 0; i < 1500; ++i) {
 				in[i] = cos(2 * PI * freq / 1000 * i);
@@ -248,11 +248,10 @@ void processing_thread::stabilize() {
 
 	int next_commands[2];
 	
-
 	teensy.write(QByteArray(1, STABILIZE));
 	teensy.waitForBytesWritten(100);
 
-	// Sleep for Actuator initialization
+	// Sleep for Actuator initialization / placement
 	msleep(80);
 
 	identify_initial_vals();
@@ -264,7 +263,7 @@ void processing_thread::stabilize() {
 	float new_centroid[2];
 	std::vector<double> noise(2000);
 	for (int i = 26; i < 2026; ++i) {
-		noise[i-26] = 0.3 * cos(2 * PI * 58 / 1000 * i) + 0.3 * cos(2 * PI * 77.2 / 1000 * i);
+		noise[i - 26] = 4.5 * cos(2 * PI * 45 / 1000 * i);
 	}
 
 	for (int i = 0; i < 500; ++i) {
@@ -316,7 +315,7 @@ void processing_thread::stabilize() {
 			axes[1].post_step();
 
 			++k;
-			if (k == 3000)
+			if (k == 20000)
 				acquiring = false;
 		
 		}
@@ -334,7 +333,7 @@ void processing_thread::stream() {
 
 	adjust_framerate();
 
-	camera.GevSCPSPacketSize.SetValue(8000);
+	camera.GevSCPSPacketSize.SetValue(1500);
 
 	emit updateimagesize(camera.Width.GetValue(), camera.Height.GetValue());
 
@@ -386,7 +385,7 @@ void processing_thread::analyze_spectrum() {
 
 
 	camera.MaxNumBuffer.SetValue(_window);
-	camera.GevSCPSPacketSize.SetValue(((camera.Height.GetValue() * camera.Width.GetValue() + 14) / 4) * 4);
+	//camera.GevSCPSPacketSize.SetValue(((camera.Height.GetValue() * camera.Width.GetValue() + 14) / 4) * 4);
 	camera.StartGrabbing();
 
 	while (i < _window) {
@@ -452,11 +451,6 @@ void processing_thread::analyze_spectrum() {
 
 	fftwf_execute(planx);
 	fftwf_execute(plany);
-
-	Filter LP = Filter(LPF, 60, 1, 0.1);
-	if (LP.get_error_flag() != 0) {
-		emit write_to_log(QString("LP Filter is broken."));
-	}
 
 	fftx.resize(_window / 2);
 	ffty.resize(_window / 2);

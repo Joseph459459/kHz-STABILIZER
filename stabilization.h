@@ -81,7 +81,9 @@ struct axes_cell {
 			/ (tf_params[0] - tf_params[2]));
 
 
-
+		DAC_cmds[0] = std::max(DAC_cmds[0], 0);
+		DAC_cmds[0] = std::min(DAC_cmds[0], 4095);
+		
 		return DAC_cmds[0];
 
 	}

@@ -1,8 +1,7 @@
 <RCC>
-  <qresource prefix="resources">
-    <file>refresh.svg</file>
-    <file>50849.svg</file>
-    <file>63468.svg</file>
-    <file>barf.png</file>
-  </qresource>
+    <qresource prefix="/resources">
+        <file>refresh.svg</file>
+        <file>50849.svg</file>
+        <file>63468.svg</file>
+    </qresource>
 </RCC>
