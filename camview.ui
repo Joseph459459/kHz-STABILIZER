@@ -37,15 +37,28 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>404</width>
+         <width>418</width>
          <height>463</height>
         </rect>
        </property>
        <layout class="QGridLayout" name="gridLayout">
-        <item row="0" column="0">
+        <item row="1" column="0">
          <widget class="imageviewer" name="imageLabel" native="true">
           <property name="styleSheet">
            <string notr="true"/>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="streamLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string/>
           </property>
          </widget>
         </item>
@@ -332,45 +345,6 @@ border-style: inset;
  Range</string>
         </property>
        </widget>
-      </item>
-      <item>
-       <layout class="QHBoxLayout" name="horizontalLayout">
-        <item>
-         <widget class="QCheckBox" name="rangeOverrideCheckBox">
-          <property name="text">
-           <string/>
-          </property>
-          <property name="checked">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLabel" name="label_4">
-          <property name="font">
-           <font>
-            <pointsize>7</pointsize>
-           </font>
-          </property>
-          <property name="text">
-           <string>Range override:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QSpinBox" name="rangeOverrideBox">
-          <property name="buttonSymbols">
-           <enum>QAbstractSpinBox::NoButtons</enum>
-          </property>
-          <property name="maximum">
-           <number>4096</number>
-          </property>
-          <property name="value">
-           <number>4096</number>
-          </property>
-         </widget>
-        </item>
-       </layout>
       </item>
       <item>
        <widget class="QPushButton" name="transferFunctionButton">

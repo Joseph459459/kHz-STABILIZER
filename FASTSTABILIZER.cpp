@@ -8,7 +8,7 @@ time_point<std::chrono::steady_clock> t2;
 
 
 FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
-	: QMainWindow(parent), proc_thread(c, this), x_filters(6), y_filters(6),animateTimer(this)
+	: QMainWindow(parent), proc_thread(c, this), x_filters(6), y_filters(6),animateTimer(this), CV(nullptr)
 {
 	ui.setupUi(this);
 
@@ -81,7 +81,7 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 	connect(CV, &camview::write_to_log, this, &FASTSTABILIZER::error_handling);
 	qRegisterMetaType<GrabResultPtr_t>("GrabResultPtr_t");
 	qRegisterMetaType<std::array<double,3>>("std::array<double,3>");
-	connect(&proc_thread, &processing_thread::sendImagePtr, CV, &camview::updateimage);
+	connect(&proc_thread, &processing_thread::sendimageptr, CV, &camview::updateimage);
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, CV, &camview::updateimage,Qt::BlockingQueuedConnection);
 
 	qRegisterMetaType<QVector<double>>("QVector<double>");
@@ -516,5 +516,68 @@ void FASTSTABILIZER::update_procthread() {
 		}
 	}
 
+
+}
+
+void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
+	
+
+	if (CV == nullptr) {
+		ui.cmdLineBox->clear();
+		return;
+	}
+
+	QStringList params = ui.cmdLineBox->text().split(',');
+
+	bool numcheck = false;
+
+	if (params.length() == 3) {
+
+		for (int i = 0; i < 3; ++i) {
+
+			CV->proc_thread->drive_freqs[i] = params[i].toFloat(&numcheck);
+			
+			if (numcheck == false) {
+				CV->write_to_log(QString("Could not parse driving frequencies"));
+				return;
+			}
+		}
+
+		CV->proc_thread->write_to_log(QString("Driving frequencies have been updated to: "
+			+ QString::number(CV->proc_thread->drive_freqs[0]) + QString(" , ")
+			+ QString::number(CV->proc_thread->drive_freqs[1]) + QString(" , and ")
+			+ QString::number(CV->proc_thread->drive_freqs[2])) + QString(" Hz"));
+	}
+
+	if (params.length() == 2) {
+		
+		int DAC_range = params[0].toInt(&numcheck);
+
+		if (numcheck == false || DAC_range > 4095 || DAC_range < 0) {
+			CV->write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
+			return;
+		}
+	
+		CV->proc_thread->xDACmax = DAC_range;
+
+		DAC_range = params[1].toInt(&numcheck);
+
+		if (numcheck == false || DAC_range > 4095 || DAC_range < 0) {
+			CV->write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
+			return;
+		}
+
+		CV->proc_thread->yDACmax = DAC_range;
+
+		CV->write_to_log(QString("DAC range in x: ")
+			+ QString::number(CV->proc_thread->xDACmax));
+		CV->write_to_log(QString("DAC range in y: ")
+			+ QString::number(CV->proc_thread->yDACmax));
+
+	}
+
+
+
+	ui.cmdLineBox->clear();
 
 }

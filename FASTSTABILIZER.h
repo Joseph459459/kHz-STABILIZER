@@ -59,6 +59,7 @@ public slots:
 	void create_fft_plots();
 	void update_freq_label(int N, int graphdatapos);
 	void update_procthread();
+	void on_cmdLineBox_returnPressed();
 
 	QVector<double> filtersim(QVector<double>& in, int graphpos, int N, float phi);
 

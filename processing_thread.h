@@ -69,7 +69,7 @@ public slots:
 
 signals:
 	void write_to_log(QString q);
-	void sendImagePtr(GrabResultPtr_t ptr);
+	void sendimageptr(GrabResultPtr_t ptr);
 	void send_imgptr_blocking(GrabResultPtr_t ptr);
 	void updateimagesize(int width, int height);
 	void updateprogress(int i);

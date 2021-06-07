@@ -20,6 +20,7 @@ float drive_freqs[3];
 uint16_t xDACmax = 0;
 uint16_t yDACmax = 0;
 
+bool switch_ = false;
 
 
 void setup()
@@ -99,10 +100,10 @@ void stabilize() {
 
 			Serial.readBytes((char*)in, 4);
 
-			analogWriteDAC1(in[0]);
+			//analogWriteDAC1(in[0]);
 
-			//analogWriteDAC1(switch_ ? 2000 : 0);
-			//switch_ = !switch_;
+			analogWriteDAC1(switch_ ? 2000 : 0);
+			switch_ = !switch_;
 
 		}
 	}
@@ -151,7 +152,6 @@ void learn_tf() {
 	taper_down();
 }
 
-bool switch_ = false;
 
 void find_range() {
 

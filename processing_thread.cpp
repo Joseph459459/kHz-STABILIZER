@@ -6,6 +6,7 @@
 #include <gsl/gsl_math.h>
 #include "stabilization.h"
 #include <algorithm>
+#include <queue>
 
 #define sq(x) ((x)*(x))
 
@@ -82,6 +83,9 @@ processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
 	: QThread(parent), camera(CTlFactory::GetInstance().CreateDevice(c))
 {
 	PylonInitialize();
+
+	drive_freqs.fill(-1);
+	yDACmax = -1, xDACmax = -1;
 
 	fit_params.reserve(2);
 
@@ -246,6 +250,20 @@ void processing_thread::stabilize() {
 		return;
 	}
 
+	for (float freq : drive_freqs) {
+		if (freq > 500 || freq < 0) {
+			emit write_to_log(QString("Driving frequencies have not been set or are invalid"));
+			emit finished_analysis();
+			return;
+		}
+	}
+
+	if (yDACmax > 4095 || yDACmax < 0 || xDACmax > 4095 || xDACmax < 0) {
+		emit write_to_log(QString("Actuator Range has not been set or is invalid"));
+		emit finished_analysis();
+		return;
+	}
+
 	int next_commands[2];
 	
 	teensy.write(QByteArray(1, STABILIZE));
@@ -307,15 +325,15 @@ void processing_thread::stabilize() {
 			teensy.waitForBytesWritten(10);
 
 
-			qDebug() << axes[1].DAC_cmds[0];
-			qDebug() << axes[1].target[0];
-			qDebug() << axes[1].noise_element;
+			//qDebug() << axes[1].DAC_cmds[0];
+			//qDebug() << axes[1].target[0];
+			//qDebug() << axes[1].noise_element;
 			qDebug() << height - new_centroid[1];
 
 			axes[1].post_step();
 
 			++k;
-			if (k == 20000)
+			if (k == 25000)
 				acquiring = false;
 		
 		}
@@ -324,7 +342,7 @@ void processing_thread::stabilize() {
 
 #endif
 	teensy.close();
-
+	camera.Close();
 	emit finished_analysis();
 
 }
@@ -337,26 +355,32 @@ void processing_thread::stream() {
 
 	emit updateimagesize(camera.Width.GetValue(), camera.Height.GetValue());
 
-	camera.MaxNumBuffer.SetValue(20);
+	const int update_period = 20; // ms
+
+	//std::queue<double> centroidx(std::queue<double>::container_type(1000/update_period, 0));
+	//std::queue<double> centroidx(std::queue<double>::container_type(1000/update_period, 0));
+
+	camera.MaxNumBuffer.SetValue(update_period);
 	camera.StartGrabbing();
 	GrabResultPtr_t ptr;
 	acquiring = true;
 	int k = 0;
 
 	while (acquiring) {
-		msleep(20);
+		msleep(update_period);
 		if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
-			emit sendImagePtr(ptr);
+			
+			emit sendimageptr(ptr);
 
 			std::array<float, 2> p = centroid(ptr, threshold);
 
-			if (! (k % 100))
+			if (!(k % 100))
 				qDebug() << ptr->GetHeight() - p[1];
 
 			k++;
 		}
 	}
-	msleep(20);
+	msleep(update_period);
 	camera.StopGrabbing();
 }
 
