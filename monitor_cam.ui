@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>camview</class>
- <widget class="QDockWidget" name="camview">
+ <class>monitor_cam</class>
+ <widget class="QDockWidget" name="monitor_cam">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -279,108 +279,6 @@ border-style: inset;
          </widget>
         </item>
        </layout>
-      </item>
-      <item>
-       <widget class="QPushButton" name="noiseSpectrumButton">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="font">
-         <font>
-          <family>Source Code Pro</family>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton{
-border-style: solid;
-border-color: rgba(200,100,0,130);
-border-width: 1px;
-}
-
-QPushButton::pressed{
-background-color: rgba(200, 100, 0,20);
-border-style: inset;
-
-
-}</string>
-        </property>
-        <property name="text">
-         <string>Find Noise 
- Spectrum</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="actuatorRangeButton">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="font">
-         <font>
-          <family>Source Code Pro</family>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton{
-border-style: solid;
-border-color: rgba(200,100,0,130);
-border-width: 1px;
-}
-
-QPushButton::pressed{
-background-color: rgba(200, 100, 0,20);
-border-style: inset;
-
-
-}</string>
-        </property>
-        <property name="text">
-         <string>Find Actuator 
- Range</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="transferFunctionButton">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="font">
-         <font>
-          <family>Source Code Pro</family>
-         </font>
-        </property>
-        <property name="styleSheet">
-         <string notr="true">QPushButton{
-border-style: solid;
-border-color: rgba(200,100,0,130);
-border-width: 1px;
-}
-
-QPushButton::pressed{
-background-color: rgba(200, 100, 0,20);
-border-style: inset;
-
-
-}</string>
-        </property>
-        <property name="text">
-         <string>Find Transfer 
- Function</string>
-        </property>
-       </widget>
       </item>
      </layout>
     </item>

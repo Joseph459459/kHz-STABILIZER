@@ -103,18 +103,20 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="monitor_cam.cpp" />
     <ClCompile Include="processing_thread.cpp" />
     <ClCompile Include="qcustomplot.cpp" />
     <QtRcc Include="khz_STABILIZER.qrc" />
     <QtUic Include="cameraselect.ui" />
-    <QtUic Include="camview.ui" />
     <QtUic Include="FASTSTABILIZER.ui" />
     <ClCompile Include="cameraselect.cpp" />
-    <ClCompile Include="camview.cpp" />
+    <ClCompile Include="feedback_cam.cpp" />
     <ClCompile Include="console.cpp" />
     <ClCompile Include="FASTSTABILIZER.cpp" />
     <ClCompile Include="filt.cpp" />
     <ClCompile Include="main.cpp" />
+    <QtUic Include="feedback_cam.ui" />
+    <QtUic Include="monitor_cam.ui" />
   </ItemGroup>
   <ItemGroup>
     <None Include="50849.svg" />
@@ -128,7 +130,7 @@
     <QtMoc Include="cameraselect.h" />
   </ItemGroup>
   <ItemGroup>
-    <QtMoc Include="camview.h" />
+    <QtMoc Include="feedback_cam.h" />
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="console.h" />
@@ -139,6 +141,7 @@
   <ItemGroup>
     <ClInclude Include="filt.h" />
     <ClInclude Include="FS_macros.h" />
+    <QtMoc Include="monitor_cam.h" />
     <ClInclude Include="stabilization.h" />
     <QtMoc Include="qcustomplot.h" />
     <QtMoc Include="processing_thread.h" />

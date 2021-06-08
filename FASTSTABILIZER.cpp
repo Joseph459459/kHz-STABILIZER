@@ -8,7 +8,7 @@ time_point<std::chrono::steady_clock> t2;
 
 
 FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
-	: QMainWindow(parent), proc_thread(c, this), x_filters(6), y_filters(6),animateTimer(this), CV(nullptr)
+	: QMainWindow(parent), proc_thread(c, this), x_filters(6), y_filters(6),animateTimer(this), FC(nullptr)
 {
 	ui.setupUi(this);
 
@@ -20,7 +20,7 @@ FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
 }
 
 FASTSTABILIZER::~FASTSTABILIZER() {
-	proc_thread.camera.DestroyDevice();
+	proc_thread.fb_cam.DestroyDevice();
 	PylonTerminate();
 }
 
@@ -56,9 +56,9 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 		return;
 	}
 
-	CV->safe_thread_close();
+	FC->safe_thread_close();
 
-	CV->close();
+	FC->close();
 
 	update_procthread();
 
@@ -76,22 +76,32 @@ void FASTSTABILIZER::error_handling(QString q) {
 
 void FASTSTABILIZER::on_learnButton_clicked() {
 
-	CV = new camview(&proc_thread, this);
-	connect(&proc_thread, &processing_thread::updateimagesize, CV, &camview::updateimagesize, Qt::BlockingQueuedConnection);
-	connect(CV, &camview::write_to_log, this, &FASTSTABILIZER::error_handling);
 	qRegisterMetaType<GrabResultPtr_t>("GrabResultPtr_t");
-	qRegisterMetaType<std::array<double,3>>("std::array<double,3>");
-	connect(&proc_thread, &processing_thread::sendimageptr, CV, &camview::updateimage);
-	connect(&proc_thread, &processing_thread::send_imgptr_blocking, CV, &camview::updateimage,Qt::BlockingQueuedConnection);
-
+	qRegisterMetaType<std::array<double, 3>>("std::array<double,3>");
 	qRegisterMetaType<QVector<double>>("QVector<double>");
+
+	FC = new feedback_cam(&proc_thread, this);
+	connect(&proc_thread, &processing_thread::updateimagesize, FC, &feedback_cam::updateimagesize, Qt::BlockingQueuedConnection);
+	connect(FC, &feedback_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
+
+	connect(&proc_thread, &processing_thread::sendimageptr, FC, &feedback_cam::updateimage);
+	connect(&proc_thread, &processing_thread::send_imgptr_blocking, FC, &feedback_cam::updateimage,Qt::BlockingQueuedConnection);
 
 	connect(&proc_thread, &processing_thread::update_fft_plot, this, &FASTSTABILIZER::update_fft_plot);
 	connect(&proc_thread, &processing_thread::update_tf_plot, this, &FASTSTABILIZER::update_tf_plot);
 
-	CV->setAttribute(Qt::WA_DeleteOnClose);
+	FC->setAttribute(Qt::WA_DeleteOnClose);
 
-	CV->show();
+
+
+	//MC = new monitor_cam(&proc_thread, this);
+	//connect(&proc_thread, &processing_thread::updateimagesize, MC, &monitor_cam::updateimagesize, Qt::BlockingQueuedConnection);
+	//connect(MC, &monitor_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
+	//connect(&proc_thread, &processing_thread::sendimageptr, MC, &monitor_cam::updateimage);
+	//connect(&proc_thread, &processing_thread::send_imgptr_blocking, MC, &monitor_cam::updateimage, Qt::BlockingQueuedConnection);
+
+	//MC->show();
+	FC->show();
 
 	proc_thread.plan = STREAM;
 	proc_thread.start();
@@ -430,8 +440,6 @@ void FASTSTABILIZER::remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* 
 	for (int i = 2;i < 14; ++i) {
 		if (!QString::compare(p->name(), QString::number(i))) {
 
-
-
 			ui.plot->graph(i)->data()->clear();
 			ui.plotLabel->clear();
 			ui.plot->replot();
@@ -487,7 +495,6 @@ void FASTSTABILIZER::update_freq_label(int N, int graphdatapos) {
 	ui.plotLabel->setText("Freq: " + QString::number(graphdatapos / (_window / 2.0) * 500) +
 		" Hz | Window: " + QString::number(N) + " ms ");
 
-
 }
 
 void FASTSTABILIZER::update_procthread() {
@@ -522,7 +529,7 @@ void FASTSTABILIZER::update_procthread() {
 void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
 	
 
-	if (CV == nullptr) {
+	if (FC == nullptr) {
 		ui.cmdLineBox->clear();
 		return;
 	}
@@ -535,18 +542,18 @@ void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
 
 		for (int i = 0; i < 3; ++i) {
 
-			CV->proc_thread->drive_freqs[i] = params[i].toFloat(&numcheck);
+			FC->proc_thread->drive_freqs[i] = params[i].toFloat(&numcheck);
 			
 			if (numcheck == false) {
-				CV->write_to_log(QString("Could not parse driving frequencies"));
+				FC->write_to_log(QString("Could not parse driving frequencies"));
 				return;
 			}
 		}
 
-		CV->proc_thread->write_to_log(QString("Driving frequencies have been updated to: "
-			+ QString::number(CV->proc_thread->drive_freqs[0]) + QString(" , ")
-			+ QString::number(CV->proc_thread->drive_freqs[1]) + QString(" , and ")
-			+ QString::number(CV->proc_thread->drive_freqs[2])) + QString(" Hz"));
+		FC->proc_thread->write_to_log(QString("Driving frequencies have been updated to: "
+			+ QString::number(FC->proc_thread->drive_freqs[0]) + QString(" , ")
+			+ QString::number(FC->proc_thread->drive_freqs[1]) + QString(" , and ")
+			+ QString::number(FC->proc_thread->drive_freqs[2])) + QString(" Hz"));
 	}
 
 	if (params.length() == 2) {
@@ -554,25 +561,25 @@ void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
 		int DAC_range = params[0].toInt(&numcheck);
 
 		if (numcheck == false || DAC_range > 4095 || DAC_range < 0) {
-			CV->write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
+			FC->write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
 			return;
 		}
 	
-		CV->proc_thread->xDACmax = DAC_range;
+		FC->proc_thread->xDACmax = DAC_range;
 
 		DAC_range = params[1].toInt(&numcheck);
 
 		if (numcheck == false || DAC_range > 4095 || DAC_range < 0) {
-			CV->write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
+			FC->write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
 			return;
 		}
 
-		CV->proc_thread->yDACmax = DAC_range;
+		FC->proc_thread->yDACmax = DAC_range;
 
-		CV->write_to_log(QString("DAC range in x: ")
-			+ QString::number(CV->proc_thread->xDACmax));
-		CV->write_to_log(QString("DAC range in y: ")
-			+ QString::number(CV->proc_thread->yDACmax));
+		FC->write_to_log(QString("DAC range in x: ")
+			+ QString::number(FC->proc_thread->xDACmax));
+		FC->write_to_log(QString("DAC range in y: ")
+			+ QString::number(FC->proc_thread->yDACmax));
 
 	}
 

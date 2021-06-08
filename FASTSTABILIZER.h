@@ -1,7 +1,8 @@
 #pragma once
 #include "ui_FASTSTABILIZER.h"
 
-#include "camview.h"
+#include "feedback_cam.h"
+#include "monitor_cam.h"
 #include "console.h"
 #include "FS_macros.h"
 
@@ -28,7 +29,9 @@ public:
 	FASTSTABILIZER(CDeviceInfo c, QWidget *parent = Q_NULLPTR);
 	~FASTSTABILIZER();
 	
-	camview* CV;
+	feedback_cam* FC;
+	monitor_cam* MC;
+
 	processing_thread proc_thread;
 	QVector<double> freqs;
 	QVector<myFilter> x_filters;

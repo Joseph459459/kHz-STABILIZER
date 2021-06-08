@@ -80,7 +80,7 @@ struct harmonics_filter {
 
 
 processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
-	: QThread(parent), camera(CTlFactory::GetInstance().CreateDevice(c))
+	: QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(c))
 {
 	PylonInitialize();
 
@@ -100,23 +100,32 @@ processing_thread::~processing_thread()
 void processing_thread::adjust_framerate() {
 
 	//Dumb hack - this sets the acquisition frame rate to the maximum allowed with given settings
-	camera.AcquisitionFrameRateAbs.SetValue(100000.0);
+	fb_cam.AcquisitionFrameRateAbs.SetValue(100000.0);
 
-	if (camera.ResultingFrameRateAbs() > 1000)
-		camera.AcquisitionFrameRateAbs.SetValue(1000);
+	if (fb_cam.ResultingFrameRateAbs() > 1000)
+		fb_cam.AcquisitionFrameRateAbs.SetValue(1000);
 	else
-		camera.AcquisitionFrameRateAbs.SetValue(camera.ResultingFrameRateAbs());
+		fb_cam.AcquisitionFrameRateAbs.SetValue(fb_cam.ResultingFrameRateAbs());
 
+	if (monitor_cam_enabled == true) {
+
+		monitor_cam.AcquisitionFrameRateAbs.SetValue(100000.0);
+
+		if (monitor_cam.ResultingFrameRateAbs() > 1000)
+			monitor_cam.AcquisitionFrameRateAbs.SetValue(1000);
+		else
+			monitor_cam.AcquisitionFrameRateAbs.SetValue(monitor_cam.ResultingFrameRateAbs());
+	}
 }
 
 void processing_thread::identify_initial_vals() {
 
 	GrabResultPtr_t ptr;
-	const int height = camera.Height();
-	const int width = camera.Width();
+	const int height = fb_cam.Height();
+	const int width = fb_cam.Width();
 
-	camera.MaxNumBuffer.SetValue(5);
-	camera.StartGrabbing();
+	fb_cam.MaxNumBuffer.SetValue(5);
+	fb_cam.StartGrabbing();
 
 	std::vector<double> centroid_x(2000);
 	std::vector<double> centroid_y(2000);
@@ -124,7 +133,7 @@ void processing_thread::identify_initial_vals() {
 
 	for (int i = 0; i < 2000; ++i) {
 
-		if (camera.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
+		if (fb_cam.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
 
 			centroid(ptr, height, width, new_centroid, threshold);
 
@@ -136,7 +145,7 @@ void processing_thread::identify_initial_vals() {
 		}
 	}
 
-	camera.StopGrabbing();
+	fb_cam.StopGrabbing();
 
 	mean_x = std::accumulate(centroid_x.begin(), centroid_x.end(), 0.0) / centroid_x.size();
 	mean_y = std::accumulate(centroid_y.begin(), centroid_y.end(), 0.0) / centroid_y.size();
@@ -243,9 +252,9 @@ void processing_thread::stabilize() {
 
 	emit write_to_log(QString("Beginning Stabilization..."));
 
-	if (camera.ResultingFrameRateAbs.GetValue() < 1000) {
+	if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
 
-		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
+		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(fb_cam.ResultingFrameRateAbs()) + QString(" Hz)"));
 		emit finished_analysis();
 		return;
 	}
@@ -303,18 +312,18 @@ void processing_thread::stabilize() {
 	std::vector<double> corrected(1000);
 
 	GrabResultPtr_t ptr;
-	const int height = camera.Height();
-	const int width = camera.Width();
+	const int height = fb_cam.Height();
+	const int width = fb_cam.Width();
 	float new_centroid[2];
 
-	camera.MaxNumBuffer.SetValue(5);
-	camera.StartGrabbing();
+	fb_cam.MaxNumBuffer.SetValue(5);
+	fb_cam.StartGrabbing();
 	int k = 0;
 	acquiring = true;
 
 	while (acquiring) {
 
-		if (camera.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
+		if (fb_cam.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
 
 			centroid(ptr, height, width, new_centroid, threshold);
 
@@ -338,11 +347,11 @@ void processing_thread::stabilize() {
 		
 		}
 	}
-	camera.StopGrabbing();
+	fb_cam.StopGrabbing();
 
 #endif
+
 	teensy.close();
-	camera.Close();
 	emit finished_analysis();
 
 }
@@ -351,24 +360,26 @@ void processing_thread::stream() {
 
 	adjust_framerate();
 
-	camera.GevSCPSPacketSize.SetValue(1500);
+	fb_cam.GevSCPSPacketSize.SetValue(1500);
+	monitor_cam.GevSCPSPacketSize.SetValue(1500);
 
-	emit updateimagesize(camera.Width.GetValue(), camera.Height.GetValue());
+	emit updateimagesize(fb_cam.Width.GetValue(), fb_cam.Height.GetValue(),monitor_cam.Width.GetValue(),monitor_cam.Height.GetValue());
+
 
 	const int update_period = 20; // ms
 
 	//std::queue<double> centroidx(std::queue<double>::container_type(1000/update_period, 0));
 	//std::queue<double> centroidx(std::queue<double>::container_type(1000/update_period, 0));
 
-	camera.MaxNumBuffer.SetValue(update_period);
-	camera.StartGrabbing();
+	fb_cam.MaxNumBuffer.SetValue(update_period);
+	fb_cam.StartGrabbing();
 	GrabResultPtr_t ptr;
 	acquiring = true;
 	int k = 0;
 
 	while (acquiring) {
 		msleep(update_period);
-		if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
+		if (fb_cam.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
 			
 			emit sendimageptr(ptr);
 
@@ -381,7 +392,7 @@ void processing_thread::stream() {
 		}
 	}
 	msleep(update_period);
-	camera.StopGrabbing();
+	fb_cam.StopGrabbing();
 }
 
 void processing_thread::analyze_spectrum() {
@@ -390,9 +401,9 @@ void processing_thread::analyze_spectrum() {
 
 	emit write_to_log(QString("Beginning Noise Profiling..."));
 
-	if (camera.ResultingFrameRateAbs.GetValue() < 1000) {
+	if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
 		
-		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
+		emit write_to_log(QString("Camera cannot acquire at 1 kHz (") + QString::number(fb_cam.ResultingFrameRateAbs()) + QString(" Hz)"));
 		emit finished_analysis();
 		return;
 	}
@@ -408,12 +419,12 @@ void processing_thread::analyze_spectrum() {
 	int i = 0;
 
 
-	camera.MaxNumBuffer.SetValue(_window);
-	//camera.GevSCPSPacketSize.SetValue(((camera.Height.GetValue() * camera.Width.GetValue() + 14) / 4) * 4);
-	camera.StartGrabbing();
+	fb_cam.MaxNumBuffer.SetValue(_window);
+	//fb_cam.GevSCPSPacketSize.SetValue(((fb_cam.Height.GetValue() * fb_cam.Width.GetValue() + 14) / 4) * 4);
+	fb_cam.StartGrabbing();
 
 	while (i < _window) {
-		if (camera.RetrieveResult(30, ptrs[i], Pylon::TimeoutHandling_Return)) {
+		if (fb_cam.RetrieveResult(30, ptrs[i], Pylon::TimeoutHandling_Return)) {
 			++i;
 		}
 		else {
@@ -425,7 +436,7 @@ void processing_thread::analyze_spectrum() {
 		}
 	}
 
-	camera.StopGrabbing();
+	fb_cam.StopGrabbing();
 
 	emit updateprogress(_window);
 
@@ -604,17 +615,17 @@ void processing_thread::find_actuator_range() {
 
 	teensy.write(QByteArray(1, FIND_RANGE));
 	teensy.waitForBytesWritten(50);
-	camera.StartGrabbing(Pylon::GrabStrategy_UpcomingImage);
+	fb_cam.StartGrabbing(Pylon::GrabStrategy_UpcomingImage);
 
 	while (true) {
 
-		if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
+		if (fb_cam.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
 
 			std::array<double, 6> out = allparams(ptr, threshold);
 
 			qDebug() << ptr->GetHeight() - out[1];
 
-			if (!isnan(out[3]) && out[3] < camera.Height() && (out[1] - out[3] / 2) < 0) {
+			if (!isnan(out[3]) && out[3] < fb_cam.Height() && (out[1] - out[3] / 2) < 0) {
 				teensy.write(QByteArray(1, SYNC_FLAG));
 				teensy.write(QByteArray(1, STOP_FLAG));
 				if (!teensy.waitForBytesWritten(1000)) {
@@ -652,7 +663,7 @@ void processing_thread::find_actuator_range() {
 
 	}
 
-	camera.StopGrabbing();
+	fb_cam.StopGrabbing();
 
 	teensy.close();
 
@@ -665,8 +676,8 @@ void processing_thread::learn_transfer_function() {
 
 	adjust_framerate();
 
-	if (camera.ResultingFrameRateAbs.GetValue() < 1000) {
-		emit write_to_log(QString("Camera cannot acquire at 1 kHz") + QString::number(camera.ResultingFrameRateAbs()) + QString(" Hz)"));
+	if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
+		emit write_to_log(QString("Camera cannot acquire at 1 kHz") + QString::number(fb_cam.ResultingFrameRateAbs()) + QString(" Hz)"));
 	}
 	else {
 
@@ -744,16 +755,16 @@ void processing_thread::learn_transfer_function() {
 
 		int missed = 0;
 		int i = 0;
-		const int height = camera.Height();
-		const int width = camera.Width();
+		const int height = fb_cam.Height();
+		const int width = fb_cam.Width();
 		float new_centroid[2];
 
-		camera.MaxNumBuffer.SetValue(tf_window);
-		camera.StartGrabbing();
+		fb_cam.MaxNumBuffer.SetValue(tf_window);
+		fb_cam.StartGrabbing();
 
 		while (i < tf_window) {
 
-			if (camera.RetrieveResult(2, ptr, Pylon::TimeoutHandling_Return)) {
+			if (fb_cam.RetrieveResult(2, ptr, Pylon::TimeoutHandling_Return)) {
 				
 				centroid(ptr,height,width,new_centroid,threshold);
 				
@@ -773,7 +784,7 @@ void processing_thread::learn_transfer_function() {
 
 		}
 
-		camera.StopGrabbing();
+		fb_cam.StopGrabbing();
 		teensy.close();
 
 		centroidx_d.pop_front();
