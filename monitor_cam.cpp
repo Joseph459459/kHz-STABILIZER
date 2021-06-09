@@ -19,11 +19,9 @@ monitor_cam::monitor_cam(processing_thread* thread, QWidget* parent)
 	table_8[0] = qRgb(255, 255, 255);
 
 	connect(proc_thread, &processing_thread::finished_analysis, this, &monitor_cam::finished_analysis);
-
-	proc_thread->monitor_cam.Open();
+	
 	ui.exposureBox->setRange(proc_thread->monitor_cam.ExposureTimeAbs.GetMin(), proc_thread->monitor_cam.ExposureTimeAbs.GetMax());
 	ui.exposureBox->setValue(proc_thread->monitor_cam.ExposureTimeAbs.GetValue());
-
 	proc_thread->monitor_cam.AcquisitionFrameRateEnable.SetValue(true);
 
 	this->setAttribute(Qt::WA_DeleteOnClose);
@@ -54,7 +52,6 @@ void monitor_cam::updateimage(GrabResultPtr_t ptr) {
 		const uchar* row = q.bits() + y * bpl;
 		uchar* rowDst = qColored->bits() + y * bplDst;
 		std::copy(row, row + width, rowDst);
-
 	}
 	
 	ui.imageLabel->setPixmap(QPixmap::fromImage(*qColored));

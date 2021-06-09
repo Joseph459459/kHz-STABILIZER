@@ -1,11 +1,10 @@
 #pragma once
-#include "ui_FASTSTABILIZER.h"
 
+#include "ui_FASTSTABILIZER.h"
 #include "feedback_cam.h"
 #include "monitor_cam.h"
 #include "console.h"
 #include "FS_macros.h"
-
 #include <QtWidgets/QMainWindow>
 #include <QDebug>
 #include <array>
@@ -26,11 +25,13 @@ class FASTSTABILIZER : public QMainWindow
 	Q_OBJECT
 
 public:
-	FASTSTABILIZER(CDeviceInfo c, QWidget *parent = Q_NULLPTR);
+	FASTSTABILIZER(CDeviceInfo fb_info, QWidget *parent = Q_NULLPTR);
+	FASTSTABILIZER(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget* parent = Q_NULLPTR);
+
 	~FASTSTABILIZER();
 	
-	feedback_cam* FC;
-	monitor_cam* MC;
+	feedback_cam* FC = nullptr;
+	monitor_cam* MC = nullptr;
 
 	processing_thread proc_thread;
 	QVector<double> freqs;

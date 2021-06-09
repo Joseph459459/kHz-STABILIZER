@@ -20,7 +20,7 @@
    <set>Qt::NoDockWidgetArea</set>
   </property>
   <property name="windowTitle">
-   <string/>
+   <string>Feedback Camera</string>
   </property>
   <widget class="QWidget" name="widget">
    <layout class="QGridLayout" name="gridLayout_3">

@@ -79,18 +79,33 @@ struct harmonics_filter {
 };
 
 
-processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
-	: QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(c))
+processing_thread::processing_thread(CDeviceInfo fb_info, QObject* parent)
+	: QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(fb_info))
 {
 	PylonInitialize();
 
 	drive_freqs.fill(-1);
 	yDACmax = -1, xDACmax = -1;
 
+	monitor_cam_enabled = false;
+
 	fit_params.reserve(2);
 
-	CDeviceInfo info;
-	info.SetDeviceClass(Camera_t::DeviceClass());
+	fb_cam.GevSCPSPacketSize.SetValue(1500);
+}
+
+processing_thread::processing_thread(CDeviceInfo fb_info, CDeviceInfo m_info, QObject* parent)
+	: QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(fb_info)), monitor_cam(CTlFactory::GetInstance().CreateDevice(m_info))
+{
+	PylonInitialize();
+
+	drive_freqs.fill(-1);
+	yDACmax = -1, xDACmax = -1;
+
+	monitor_cam_enabled = true;
+	
+	fit_params.reserve(2);
+
 }
 
 processing_thread::~processing_thread()
@@ -107,7 +122,7 @@ void processing_thread::adjust_framerate() {
 	else
 		fb_cam.AcquisitionFrameRateAbs.SetValue(fb_cam.ResultingFrameRateAbs());
 
-	if (monitor_cam_enabled == true) {
+	if (monitor_cam_enabled) {
 
 		monitor_cam.AcquisitionFrameRateAbs.SetValue(100000.0);
 
@@ -347,11 +362,13 @@ void processing_thread::stabilize() {
 		
 		}
 	}
+
 	fb_cam.StopGrabbing();
 
 #endif
 
 	teensy.close();
+
 	emit finished_analysis();
 
 }
@@ -363,36 +380,67 @@ void processing_thread::stream() {
 	fb_cam.GevSCPSPacketSize.SetValue(1500);
 	monitor_cam.GevSCPSPacketSize.SetValue(1500);
 
-	emit updateimagesize(fb_cam.Width.GetValue(), fb_cam.Height.GetValue(),monitor_cam.Width.GetValue(),monitor_cam.Height.GetValue());
-
+	emit updateimagesize(fb_cam.Width.GetValue(), fb_cam.Height.GetValue(),
+		monitor_cam_enabled ? monitor_cam.Width.GetValue(): -1,monitor_cam_enabled ? monitor_cam.Height.GetValue() : -1);
 
 	const int update_period = 20; // ms
 
 	//std::queue<double> centroidx(std::queue<double>::container_type(1000/update_period, 0));
 	//std::queue<double> centroidx(std::queue<double>::container_type(1000/update_period, 0));
 
-	fb_cam.MaxNumBuffer.SetValue(update_period);
 	fb_cam.StartGrabbing();
-	GrabResultPtr_t ptr;
+
 	acquiring = true;
 	int k = 0;
 
-	while (acquiring) {
-		msleep(update_period);
-		if (fb_cam.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
-			
-			emit sendimageptr(ptr);
+	if (monitor_cam_enabled) {
 
-			std::array<float, 2> p = centroid(ptr, threshold);
+		monitor_cam.StartGrabbing();
 
-			if (!(k % 100))
-				qDebug() << ptr->GetHeight() - p[1];
+		while (acquiring) {
 
-			k++;
+			msleep(update_period);
+
+			GrabResultPtr_t fb_ptr;
+			GrabResultPtr_t m_ptr;
+
+			if (fb_cam.RetrieveResult(5000, fb_ptr, Pylon::TimeoutHandling_Return) 
+				&& monitor_cam.RetrieveResult(5000, m_ptr, Pylon::TimeoutHandling_Return)) {
+
+				emit send_feedback_ptr(fb_ptr);
+				emit send_monitor_ptr(m_ptr);
+
+				//std::array<float, 2> p = centroid(fb_ptr, threshold);
+				//if (!(k % 100))
+				//	qDebug() << fb_ptr->GetHeight() - p[1];
+				//k++;
+
+			}
 		}
 	}
-	msleep(update_period);
-	fb_cam.StopGrabbing();
+
+	else {
+
+		while (acquiring) {
+
+			msleep(update_period);
+
+			GrabResultPtr_t fb_ptr;
+
+			if (fb_cam.RetrieveResult(100, fb_ptr, Pylon::TimeoutHandling_Return)) {
+
+				emit send_feedback_ptr(fb_ptr);
+
+				std::array<float, 2> p = centroid(fb_ptr, threshold);
+
+				if (!(k % 100))
+					qDebug() << fb_ptr->GetHeight() - p[1];
+
+				k++;
+			}
+		}
+	}
+
 }
 
 void processing_thread::analyze_spectrum() {

@@ -16,7 +16,9 @@ class processing_thread : public QThread
 	Q_OBJECT
 	
 public:
-	explicit processing_thread(CDeviceInfo c, QObject* parent);
+	explicit processing_thread(CDeviceInfo fb_info, QObject* parent);
+	explicit processing_thread(CDeviceInfo fb_info, CDeviceInfo m_info, QObject* parent);
+
 	~processing_thread();
 
 	QVector<float> centroidx_f;
@@ -57,7 +59,7 @@ public:
 	float mean_x;
 	float mean_y;
 
-	bool monitor_cam_enabled = false;
+	std::atomic<bool> monitor_cam_enabled = false;
 
 public slots:
 	void stabilize();
@@ -72,7 +74,8 @@ public slots:
 
 signals:
 	void write_to_log(QString q);
-	void sendimageptr(GrabResultPtr_t ptr);
+	void send_feedback_ptr(GrabResultPtr_t ptr);
+	void send_monitor_ptr(GrabResultPtr_t ptr);
 	void send_imgptr_blocking(GrabResultPtr_t ptr);
 	void updateimagesize(int feedback_width, int feedback_height,int monitor_width, int monitor_height);
 	void updateprogress(int i);

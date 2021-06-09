@@ -14,16 +14,15 @@ feedback_cam::feedback_cam(processing_thread* thread, QWidget* parent)
 			(int)std::round(std::clamp(-4.0 * std::abs(i - 255.0 * 1.0 / 4) + 255.0 * 3.0 / 2, 0.0, 255.0))));
 
 	}
+
 	qColored = new QImage(1, 1, QImage::Format_Indexed8);
 
 	table_8[0] = qRgb(255, 255, 255);
 
 	connect(proc_thread, &processing_thread::finished_analysis, this, &feedback_cam::finished_analysis);
 
-	proc_thread->fb_cam.Open();
 	ui.exposureBox->setRange(proc_thread->fb_cam.ExposureTimeAbs.GetMin(), proc_thread->fb_cam.ExposureTimeAbs.GetMax());
 	ui.exposureBox->setValue(proc_thread->fb_cam.ExposureTimeAbs.GetValue());
-
 	proc_thread->fb_cam.AcquisitionFrameRateEnable.SetValue(true);
 
 	this->setAttribute(Qt::WA_DeleteOnClose);

@@ -7,8 +7,8 @@ time_point<std::chrono::steady_clock> t1;
 time_point<std::chrono::steady_clock> t2;
 
 
-FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
-	: QMainWindow(parent), proc_thread(c, this), x_filters(6), y_filters(6),animateTimer(this), FC(nullptr)
+FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, QWidget* parent)
+	: QMainWindow(parent), proc_thread(fb_info, this), x_filters(6), y_filters(6),animateTimer(this), FC(nullptr), MC(nullptr)
 {
 	ui.setupUi(this);
 
@@ -19,8 +19,24 @@ FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
 	
 }
 
+FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget* parent)
+	: QMainWindow(parent), proc_thread(fb_info, m_info, this), x_filters(6), y_filters(6), animateTimer(this), FC(nullptr), MC(nullptr)
+{
+	ui.setupUi(this);
+
+	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::error_handling);
+
+	create_fft_plots();
+	create_tf_plots();
+
+}
+
 FASTSTABILIZER::~FASTSTABILIZER() {
 	proc_thread.fb_cam.DestroyDevice();
+	
+	if (proc_thread.monitor_cam_enabled)
+		proc_thread.monitor_cam.DestroyDevice();
+
 	PylonTerminate();
 }
 
@@ -28,12 +44,12 @@ void FASTSTABILIZER::on_stopButton_clicked() {
 
 	proc_thread.acquiring = false;
 
-	//proc_thread.quit();
+	proc_thread.quit();
 
-	//if (!proc_thread.wait(3000)) {
-	//	proc_thread.terminate();
-	//	proc_thread.wait();
-	//}
+	if (!proc_thread.wait(3000)) {
+		proc_thread.terminate();
+		proc_thread.wait();
+	}
 
 	ui.stabilizeButton->setChecked(false);
 }
@@ -60,6 +76,9 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 
 	FC->close();
 
+	if (proc_thread.monitor_cam_enabled)
+		MC->close();
+
 	update_procthread();
 
 	proc_thread.plan = STABILIZE;
@@ -80,11 +99,16 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 	qRegisterMetaType<std::array<double, 3>>("std::array<double,3>");
 	qRegisterMetaType<QVector<double>>("QVector<double>");
 
+	proc_thread.fb_cam.Open();
+	
+	if (proc_thread.monitor_cam_enabled)
+		proc_thread.monitor_cam.Open();
+
 	FC = new feedback_cam(&proc_thread, this);
 	connect(&proc_thread, &processing_thread::updateimagesize, FC, &feedback_cam::updateimagesize, Qt::BlockingQueuedConnection);
 	connect(FC, &feedback_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
 
-	connect(&proc_thread, &processing_thread::sendimageptr, FC, &feedback_cam::updateimage);
+	connect(&proc_thread, &processing_thread::send_feedback_ptr, FC, &feedback_cam::updateimage);
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, FC, &feedback_cam::updateimage,Qt::BlockingQueuedConnection);
 
 	connect(&proc_thread, &processing_thread::update_fft_plot, this, &FASTSTABILIZER::update_fft_plot);
@@ -92,15 +116,17 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 
 	FC->setAttribute(Qt::WA_DeleteOnClose);
 
+	if (proc_thread.monitor_cam_enabled) {
 
+		MC = new monitor_cam(&proc_thread, this);
+		connect(&proc_thread, &processing_thread::updateimagesize, MC, &monitor_cam::updateimagesize, Qt::BlockingQueuedConnection);
+		connect(MC, &monitor_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
+		connect(&proc_thread, &processing_thread::send_monitor_ptr, MC, &monitor_cam::updateimage);
+		connect(&proc_thread, &processing_thread::send_imgptr_blocking, MC, &monitor_cam::updateimage, Qt::BlockingQueuedConnection);
+		connect(FC, &QDockWidget::destroyed, MC, &QDockWidget::deleteLater);
+		MC->show();
+	}
 
-	//MC = new monitor_cam(&proc_thread, this);
-	//connect(&proc_thread, &processing_thread::updateimagesize, MC, &monitor_cam::updateimagesize, Qt::BlockingQueuedConnection);
-	//connect(MC, &monitor_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
-	//connect(&proc_thread, &processing_thread::sendimageptr, MC, &monitor_cam::updateimage);
-	//connect(&proc_thread, &processing_thread::send_imgptr_blocking, MC, &monitor_cam::updateimage, Qt::BlockingQueuedConnection);
-
-	//MC->show();
 	FC->show();
 
 	proc_thread.plan = STREAM;

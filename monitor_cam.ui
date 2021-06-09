@@ -2,6 +2,9 @@
 <ui version="4.0">
  <class>monitor_cam</class>
  <widget class="QDockWidget" name="monitor_cam">
+  <property name="windowModality">
+   <enum>Qt::NonModal</enum>
+  </property>
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -16,11 +19,14 @@
   <property name="floating">
    <bool>true</bool>
   </property>
+  <property name="features">
+   <set>QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
+  </property>
   <property name="allowedAreas">
    <set>Qt::NoDockWidgetArea</set>
   </property>
   <property name="windowTitle">
-   <string/>
+   <string>Monitor Camera</string>
   </property>
   <widget class="QWidget" name="widget">
    <layout class="QGridLayout" name="gridLayout_3">

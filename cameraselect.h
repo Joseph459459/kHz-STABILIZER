@@ -21,6 +21,8 @@ class cameraselect : public QWidget
 
 public:
 	DeviceInfoList_t devices;
+	CDeviceInfo fb_info;
+	bool selecting_monitor_cam = false;
 	cameraselect(QWidget *parent = Q_NULLPTR);
 	~cameraselect();
 
