@@ -91,7 +91,6 @@ processing_thread::processing_thread(CDeviceInfo fb_info, QObject* parent)
 
 	fit_params.reserve(2);
 
-	fb_cam.GevSCPSPacketSize.SetValue(1500);
 }
 
 processing_thread::processing_thread(CDeviceInfo fb_info, CDeviceInfo m_info, QObject* parent)
@@ -378,7 +377,9 @@ void processing_thread::stream() {
 	adjust_framerate();
 
 	fb_cam.GevSCPSPacketSize.SetValue(1500);
-	monitor_cam.GevSCPSPacketSize.SetValue(1500);
+
+	if (monitor_cam_enabled)
+		monitor_cam.GevSCPSPacketSize.SetValue(1500);
 
 	emit updateimagesize(fb_cam.Width.GetValue(), fb_cam.Height.GetValue(),
 		monitor_cam_enabled ? monitor_cam.Width.GetValue(): -1,monitor_cam_enabled ? monitor_cam.Height.GetValue() : -1);

@@ -61,6 +61,7 @@ void cameraselect::on_cameraList_itemDoubleClicked(QListWidgetItem* item) {
 			fb_info = devices[ui.cameraList->row(item)];
 			return;
 		case QMessageBox::No:
+			fb_info = devices[ui.cameraList->row(item)];
 			if (CTlFactory::GetInstance().IsDeviceAccessible(fb_info)) {
 				FASTSTABILIZER* f = new FASTSTABILIZER(fb_info, this);
 				f->show();
