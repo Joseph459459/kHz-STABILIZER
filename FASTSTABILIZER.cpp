@@ -7,12 +7,13 @@ time_point<std::chrono::steady_clock> t1;
 time_point<std::chrono::steady_clock> t2;
 
 
-FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo c, QWidget* parent)
-	: QMainWindow(parent), proc_thread(c, this), x_filters(6), y_filters(6),animateTimer(this), CV(nullptr)
+FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo info, QWidget* parent)
+	: QMainWindow(parent), proc_thread(info, this), x_filters(6), y_filters(6),animateTimer(this), CV(nullptr)
 {
 	ui.setupUi(this);
 
-	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::error_handling);
+	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::update_log);
+	connect(this, &FASTSTABILIZER::send_cmd_line_data, &proc_thread, &processing_thread::receive_cmd_line_data);
 
 	create_fft_plots();
 	create_tf_plots();
@@ -52,7 +53,7 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 	}
 
 	if (no_filters) {
-		error_handling("No filters placed.");
+		update_log("No filters placed.");
 		return;
 	}
 
@@ -66,7 +67,7 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 	proc_thread.start(QThread::TimeCriticalPriority);
 }
 
-void FASTSTABILIZER::error_handling(QString q) {
+void FASTSTABILIZER::update_log(QString q) {
 
 	ui.console->appendPlainText(q);
 	ui.console->appendPlainText(QString(" "));
@@ -78,13 +79,13 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 
 	CV = new camview(&proc_thread, this);
 	connect(&proc_thread, &processing_thread::updateimagesize, CV, &camview::updateimagesize, Qt::BlockingQueuedConnection);
-	connect(CV, &camview::write_to_log, this, &FASTSTABILIZER::error_handling);
+	connect(CV, &camview::write_to_log, this, &FASTSTABILIZER::update_log);
 	qRegisterMetaType<GrabResultPtr_t>("GrabResultPtr_t");
 	qRegisterMetaType<std::array<double,3>>("std::array<double,3>");
 	connect(&proc_thread, &processing_thread::sendimageptr, CV, &camview::updateimage);
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, CV, &camview::updateimage,Qt::BlockingQueuedConnection);
 
-	qRegisterMetaType<QVector<double>>("QVector<double>");
+	qRegisterMetaType<QVector<QVector<double>>>("QVector<QVector<double>>");
 
 	connect(&proc_thread, &processing_thread::update_fft_plot, this, &FASTSTABILIZER::update_fft_plot);
 	connect(&proc_thread, &processing_thread::update_tf_plot, this, &FASTSTABILIZER::update_tf_plot);
@@ -232,7 +233,7 @@ void FASTSTABILIZER::create_fft_plots() {
 
 }
 
-void FASTSTABILIZER::update_fft_plot() {
+void FASTSTABILIZER::update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y) {
 
 	ui.plot->graph(0)->setData(freqs, proc_thread.fftx);
 	ui.plot->axisRect(0)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
@@ -242,39 +243,25 @@ void FASTSTABILIZER::update_fft_plot() {
 	ui.plot->graph(1)->rescaleKeyAxis();
 	ui.plot->replot();
 	
+	update_log(QString("rms x: ") + QString::number(rms_x,'f',2));
+	update_log(QString("rms y: ") + QString::number(rms_y,'f',2));
+	update_log(QString("peak to peak x: ") + QString::number(peak_to_peak_x,'f',2));
+	update_log(QString("peak to peak y: ") + QString::number(peak_to_peak_y,'f',2));
 }
 
-void FASTSTABILIZER::update_tf_plot(QVector<double> DAC_x, QVector<double> filtered_x, QVector<double> DAC_y, QVector<double> filtered_y) {
+void FASTSTABILIZER::update_tf_plot(QVector<QVector<double>> to_plot) {
 
-	hysteresis_curves[1]->setData(DAC_x
-	, filtered_x);
+	hysteresis_curves[1]->setData(to_plot[0],
+		to_plot[1]);
 
-	hysteresis_curves[3]->setData(DAC_y
-	, filtered_y);
+	hysteresis_curves[3]->setData(to_plot[3],
+		to_plot[4]);
 
-	QVector<double> sim_centroid_y(filtered_y.size() - 2);
-	QVector<double> sim_centroid_x(filtered_y.size() - 2);
-	
-	for (int i = 2; i < filtered_y.size(); ++i) {
-		
-		sim_centroid_y[i - 2] = proc_thread.fit_params[1][0] * DAC_y[i]  + proc_thread.fit_params[1][1] -  
-			(proc_thread.fit_params[1][2] * (DAC_y[i] + DAC_y[i - 1]) +  proc_thread.fit_params[1][3] * (filtered_y[i] - filtered_y[i - 1]));
+	hysteresis_curves[0]->setData(to_plot[0],
+		to_plot[2]);
 
-		sim_centroid_x[i - 2] = proc_thread.fit_params[0][0] * DAC_x[i] + proc_thread.fit_params[0][1] -
-			(proc_thread.fit_params[0][2] * (DAC_x[i] + DAC_x[i - 1]) + proc_thread.fit_params[0][3] * (filtered_x[i] - filtered_x[i - 1]));
-
-
-	}
-
-	DAC_y.erase(DAC_y.begin(), DAC_y.begin() + 2);
-	DAC_x.erase(DAC_x.begin(), DAC_x.begin() + 2);
-
-
-	hysteresis_curves[0]->setData(DAC_x
-		, sim_centroid_x);
-
-	hysteresis_curves[2]->setData( DAC_y
-		, sim_centroid_y);
+	hysteresis_curves[2]->setData(to_plot[3],
+		to_plot[5]);
 
 
 	ui.tf_plot->rescaleAxes();
@@ -527,55 +514,7 @@ void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
 		return;
 	}
 
-	QStringList params = ui.cmdLineBox->text().split(',');
-
-	bool numcheck = false;
-
-	if (params.length() == 3) {
-
-		for (int i = 0; i < 3; ++i) {
-
-			CV->proc_thread->drive_freqs[i] = params[i].toFloat(&numcheck);
-			
-			if (numcheck == false) {
-				CV->write_to_log(QString("Could not parse driving frequencies"));
-				return;
-			}
-		}
-
-		CV->proc_thread->write_to_log(QString("Driving frequencies have been updated to: "
-			+ QString::number(CV->proc_thread->drive_freqs[0]) + QString(" , ")
-			+ QString::number(CV->proc_thread->drive_freqs[1]) + QString(" , and ")
-			+ QString::number(CV->proc_thread->drive_freqs[2])) + QString(" Hz"));
-	}
-
-	if (params.length() == 2) {
-		
-		int DAC_range = params[0].toInt(&numcheck);
-
-		if (numcheck == false || DAC_range > 4095 || DAC_range < 0) {
-			CV->write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
-			return;
-		}
-	
-		CV->proc_thread->xDACmax = DAC_range;
-
-		DAC_range = params[1].toInt(&numcheck);
-
-		if (numcheck == false || DAC_range > 4095 || DAC_range < 0) {
-			CV->write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
-			return;
-		}
-
-		CV->proc_thread->yDACmax = DAC_range;
-
-		CV->write_to_log(QString("DAC range in x: ")
-			+ QString::number(CV->proc_thread->xDACmax));
-		CV->write_to_log(QString("DAC range in y: ")
-			+ QString::number(CV->proc_thread->yDACmax));
-
-	}
-
+	emit send_cmd_line_data(ui.cmdLineBox->text().split(','));
 
 
 	ui.cmdLineBox->clear();

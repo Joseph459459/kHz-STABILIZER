@@ -66,6 +66,7 @@ public slots:
 	void learn_transfer_function();
 	void setup_stabilize();
 	void identify_initial_vals();
+	void receive_cmd_line_data(QStringList cmd_str);
 
 signals:
 	void write_to_log(QString q);
@@ -73,8 +74,8 @@ signals:
 	void send_imgptr_blocking(GrabResultPtr_t ptr);
 	void updateimagesize(int width, int height);
 	void updateprogress(int i);
-	void update_fft_plot();
-	void update_tf_plot(QVector<double>, QVector<double>, QVector<double>, QVector<double>);
+	void update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y);
+	void update_tf_plot(QVector<QVector<double>> to_plot);
 	void finished_analysis();
 
 

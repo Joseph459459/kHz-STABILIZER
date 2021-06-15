@@ -221,7 +221,6 @@ void camview::on_resetButton_clicked() {
 void camview::finished_analysis()
 {
 	this->setDisabled(false);
-
 	safe_thread_close();
 
 	proc_thread->plan = STREAM;
@@ -236,6 +235,7 @@ void camview::on_noiseSpectrumButton_clicked() {
 	progressbox = new QProgressDialog("Recording...", "Abort", 0, _window, this);
 	progressbox->setAutoClose(true);
 	progressbox->setAttribute(Qt::WA_DeleteOnClose);
+	progressbox->setWindowTitle(QString("Recording..."));
 	connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
 	progressbox->show();
 	progressbox->raise();
@@ -261,13 +261,6 @@ void camview::on_actuatorRangeButton_clicked() {
 void camview::on_transferFunctionButton_clicked() {
 
 	this->safe_thread_close();
-
-	progressbox = new QProgressDialog("Recording...", "Abort", 0, tf_window, this);
-	progressbox->setAutoClose(true);
-	progressbox->setAttribute(Qt::WA_DeleteOnClose);
-	connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
-	progressbox->show();
-	progressbox->raise();
 	
 	proc_thread->plan = LEARN_TF;
 	proc_thread->start(QThread::TimeCriticalPriority);

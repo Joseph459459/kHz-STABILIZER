@@ -14,6 +14,38 @@ using namespace arma;
 
 #define STABILIZE_DEBUG
 #undef STABILIZE_DEBUG
+
+template <typename T>
+double preciserms(T& s) {
+
+	double sumx = 0;
+	double sumxx = 0;
+	int fails = 0;
+	for (int i = 0; i < s.size(); ++i) {
+
+		if (!isnan(s[i])) {
+			sumx += s[i];
+		}
+		else
+			fails++;
+	}
+
+	double shift = sumx / (double)s.size();
+
+	sumx = 0;
+
+	for (int i = 0; i < s.size(); ++i) {
+
+		if (!isnan(s[i])) {
+			sumx += s[i] - shift;
+			sumxx += (s[i] - shift) * (s[i] - shift);
+		}
+	}
+
+	return sqrt((sumxx - sumx * sumx / ((double)s.size() - fails)) / (s.size() - fails));
+
+}
+
 struct harmonics_filter {
 
 	harmonics_filter(int freq, int filter_halfwidth) {
@@ -78,7 +110,6 @@ struct harmonics_filter {
 	Filter* fifth;
 };
 
-
 processing_thread::processing_thread(CDeviceInfo c, QObject* parent)
 	: QThread(parent), camera(CTlFactory::GetInstance().CreateDevice(c))
 {
@@ -122,6 +153,8 @@ void processing_thread::identify_initial_vals() {
 	std::vector<double> centroid_y(2000);
 	float new_centroid[2];
 
+	qDebug() << "2 sec of noise";
+
 	for (int i = 0; i < 2000; ++i) {
 
 		if (camera.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
@@ -148,6 +181,9 @@ void processing_thread::identify_initial_vals() {
 
 void processing_thread::setup_stabilize() {
 
+	axes[0].set_actuator_constants(fit_params[0]);
+	axes[1].set_actuator_constants(fit_params[1]);
+
 	int i;
 
 	axes[0].num_tones = x_tones.size();
@@ -161,13 +197,6 @@ void processing_thread::setup_stabilize() {
 	for (i = 0; i < y_tones.size(); ++i) {
 		axes[1].w[i] = 2 * PI * y_tones[i] / 1000;
 		axes[1].N[i] = y_N[i];
-	}
-
-
-
-	for (i = 0; i < 4; ++i) {
-		axes[0].tf_params[i] = fit_params[0][i];
-		axes[1].tf_params[i] = fit_params[1][i];
 	}
 
 	if (x_N.size() > 0) {
@@ -184,11 +213,10 @@ void processing_thread::setup_stabilize() {
 		axes[0].target[i] = mean_vals[0];
 		axes[1].target[i] = mean_vals[1];
 
-		axes[0].DAC_cmds[i] = 2048;
-		axes[1].DAC_cmds[i] = 2048;
+		axes[0].DAC_cmds[i] = round((double)yDACmax / 2);
+		axes[1].DAC_cmds[i] = round((double)yDACmax / 2);
 
 	}
-
 
 	axes[0].SET_POINT = mean_vals[0];
 	axes[1].SET_POINT = mean_vals[1];
@@ -238,7 +266,6 @@ void processing_thread::stabilize() {
 
 #pragma endregion
 
-
 	adjust_framerate();
 
 	emit write_to_log(QString("Beginning Stabilization..."));
@@ -281,10 +308,10 @@ void processing_thread::stabilize() {
 	float new_centroid[2];
 	std::vector<double> noise(2000);
 	for (int i = 26; i < 2026; ++i) {
-		noise[i - 26] = 4.5 * cos(2 * PI * 45 / 1000 * i);
+		noise[i - 26] = 2 * cos(2 * PI * 110 / 1000 * i);
 	}
 
-	for (int i = 0; i < 500; ++i) {
+	for (int i = 0; i < 2000; ++i) {
 
 		new_centroid[1] = noise[i] + axes[1].target[0];
 		
@@ -347,6 +374,56 @@ void processing_thread::stabilize() {
 
 }
 
+void processing_thread::receive_cmd_line_data(QStringList cmd_str_list) {
+
+	bool numcheck = false;
+
+	if (cmd_str_list.length() == 3) {
+
+		for (int i = 0; i < 3; ++i) {
+
+			drive_freqs[i] = cmd_str_list[i].toFloat(&numcheck);
+
+			if (numcheck == false) {
+				write_to_log(QString("Could not parse driving frequencies"));
+				return;
+			}
+		}
+
+		write_to_log(QString("Driving frequencies have been updated to: "
+			+ QString::number(drive_freqs[0]) + QString(" , ")
+			+ QString::number(drive_freqs[1]) + QString(" , and ")
+			+ QString::number(drive_freqs[2])) + QString(" Hz"));
+	}
+
+	if (cmd_str_list.length() == 2) {
+
+		int DAC_range = cmd_str_list[0].toInt(&numcheck);
+
+		if (numcheck == false || DAC_range > 4095 || DAC_range < 0) {
+			write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
+			return;
+		}
+
+		xDACmax = DAC_range;
+
+		DAC_range = cmd_str_list[1].toInt(&numcheck);
+
+		if (numcheck == false || DAC_range > 4095 || DAC_range < 0) {
+			write_to_log(QString("Could not parse DAC range, enter a number between 0 and 4095"));
+			return;
+		}
+
+		yDACmax = DAC_range;
+
+		write_to_log(QString("DAC range in x: ")
+			+ QString::number(xDACmax));
+		write_to_log(QString("DAC range in y: ")
+			+ QString::number(yDACmax));
+
+	}
+}
+
 void processing_thread::stream() {
 
 	adjust_framerate();
@@ -367,7 +444,9 @@ void processing_thread::stream() {
 	int k = 0;
 
 	while (acquiring) {
+
 		msleep(update_period);
+
 		if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
 			
 			emit sendimageptr(ptr);
@@ -381,6 +460,7 @@ void processing_thread::stream() {
 		}
 	}
 	msleep(update_period);
+
 	camera.StopGrabbing();
 }
 
@@ -463,6 +543,7 @@ void processing_thread::analyze_spectrum() {
 	float meanx = sumx / _window;
 	float meany = sumy / _window;
 
+
 	for (int i = 0; i < _window; ++i) {
 		centroidx_f[i] -= meanx;
 		centroidy_f[i] -= meany;
@@ -506,7 +587,9 @@ void processing_thread::analyze_spectrum() {
 
 	find_driving_freqs();
 
-	emit update_fft_plot();
+	emit update_fft_plot(preciserms(centroidx_f),preciserms(centroidy_f),
+		*std::max_element(centroidx_f.constBegin(),centroidx_f.constEnd()) - *std::min_element(centroidx_f.constBegin(),centroidx_f.constEnd()),
+		*std::max_element(centroidy_f.constBegin(), centroidy_f.constEnd()) - *std::min_element(centroidy_f.constBegin(), centroidy_f.constEnd()));
 
 	fftwf_destroy_plan(planx);
 	fftwf_destroy_plan(plany);
@@ -606,6 +689,8 @@ void processing_thread::find_actuator_range() {
 	teensy.waitForBytesWritten(50);
 	camera.StartGrabbing(Pylon::GrabStrategy_UpcomingImage);
 
+#pragma region Y_RANGE
+
 	while (true) {
 
 		if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
@@ -622,7 +707,7 @@ void processing_thread::find_actuator_range() {
 					break;
 				}
 			}
-			
+
 			else {
 				teensy.write(QByteArray(1, SYNC_FLAG));
 				teensy.write(QByteArray(1, CONTINUE));
@@ -632,11 +717,11 @@ void processing_thread::find_actuator_range() {
 				}
 			}
 
-			if (teensy.waitForReadyRead(1000)) {	
+			if (teensy.waitForReadyRead(1000)) {
 				if (*teensy.read(1) == STOP_FLAG) {
 					yDACmax = *((uint16_t*)teensy.read(2).data());
-					emit write_to_log(QString("Success: the DAC uses " + QString::number(yDACmax + 1) +
-						" out of 4096 available bits"));
+					emit write_to_log(QString("Success: the y axis DAC uses " + QString::number(yDACmax + 1) +
+						" out of 4096 available units of range"));
 					break;
 				}
 			}
@@ -645,12 +730,63 @@ void processing_thread::find_actuator_range() {
 				emit write_to_log(QString("Synchronization error: could not read"));
 				break;
 			}
-			
+
+			emit send_imgptr_blocking(ptr);
+
+		}
+	}
+#pragma endregion
+
+#pragma region X_RANGE
+
+	while (true) {
+
+		if (camera.RetrieveResult(30, ptr, Pylon::TimeoutHandling_Return)) {
+
+			std::array<double, 6> out = allparams(ptr, threshold);
+
+			qDebug() << ptr->GetWidth() - out[0];
+
+			if (!isnan(out[2]) && out[2] < camera.Width() && (out[0] - out[2] / 2) < 0) {
+				teensy.write(QByteArray(1, SYNC_FLAG));
+				teensy.write(QByteArray(1, STOP_FLAG));
+				if (!teensy.waitForBytesWritten(1000)) {
+					emit write_to_log(QString("Synchronization error: could not write"));
+					break;
+				}
+			}
+
+			else {
+				teensy.write(QByteArray(1, SYNC_FLAG));
+				teensy.write(QByteArray(1, CONTINUE));
+				if (!teensy.waitForBytesWritten(1000)) {
+					emit write_to_log(QString("Synchronization error: could not write"));
+					break;
+				}
+			}
+
+			if (teensy.waitForReadyRead(1000)) {
+				if (*teensy.read(1) == STOP_FLAG) {
+					xDACmax = *((uint16_t*)teensy.read(2).data());
+					emit write_to_log(QString("Success: the x axis DAC uses " + QString::number(xDACmax + 1) +
+						" out of 4096 available units of range"));
+					break;
+				}
+			}
+
+			else {
+				emit write_to_log(QString("Synchronization error: could not read"));
+				break;
+			}
+
 			emit send_imgptr_blocking(ptr);
 
 		}
 
+		
 	}
+
+#pragma endregion
 
 	camera.StopGrabbing();
 
@@ -722,7 +858,8 @@ void processing_thread::learn_transfer_function() {
 
 		teensy.write(QByteArray(1, LEARN_TF));
 		
-		teensy.write((const char*)drive_freqs.data(), 24);
+		teensy.write((const char*) drive_freqs.data(), 12);
+		teensy.write((const char*) &yDACmax, 2);
 
 		if (!teensy.waitForBytesWritten(100)) {
 			emit write_to_log(QString("Synchronization error: could not write"));
@@ -773,6 +910,8 @@ void processing_thread::learn_transfer_function() {
 
 		}
 
+		qDebug() << missed;
+
 		camera.StopGrabbing();
 		teensy.close();
 
@@ -793,42 +932,41 @@ void processing_thread::learn_transfer_function() {
 		vec centroid_diff(section_width - 2 * (n_taps / 2) - 1);
 
 		fit_params.clear();
-		DAC_centroid_linear.clear();
+		//DAC_centroid_linear.clear();
 		std::vector<double> model_RMSE;
 
 		for (QVector<double>* centroid : xy) {
 
 			vec dDAC_full;
+			vec ddDAC_full;
 			vec dcentroid_full;
 			vec DAC_full;
 			vec centroid_full;
 
-			p = centroid->data();
-
 			double sum = std::accumulate(centroid->begin(), centroid->end(), 0.0);
 			double centroid_mean = sum / centroid->size();
 
-			qDebug() << "TF mean";
-			qDebug() << centroid_mean;
+			//qDebug() << "TF mean";
+			//qDebug() << centroid_mean;
 
+			//these mean values are used as the set point when stabilizing
 			mean_vals.push_back(centroid_mean);
 
-			for (int j = 0; j < 3; ++j) {
+			for (int freq_idx = 0; freq_idx < 3; ++freq_idx) {
 
 				// EXTRACT SECTION
-				std::vector<double> tf_input_section( (double*)tf_input_arr.data() + j * section_width, (double*)tf_input_arr.data() + (j + 1) * section_width);
-				std::vector<double> centroid_section( (double*)centroid->data() + j * section_width, (double*)centroid->data() + (j + 1) * section_width);
+				std::vector<double> tf_input_section( (double*)tf_input_arr.data() + freq_idx * section_width, (double*)tf_input_arr.data() + (freq_idx + 1) * section_width);
+				std::vector<double> centroid_section( (double*)centroid->data() + freq_idx * section_width, (double*)centroid->data() + (freq_idx + 1) * section_width);
 
 				//-----------------------------------------------------
 				
 				// FILTER
-				harmonics_filter filter(drive_freqs[j], 2);
-
+				harmonics_filter filter(drive_freqs[freq_idx], 2);
 				filter.filter_vec(centroid_section);
 
 				//-----------------------------------------------------
 				
-				// ERASE FILTER LAG INTRODUCED BY PADDING ZEROS (n_taps)
+				// ERASE FILTER LAG INTRODUCED BY PADDING ZEROS (n_taps total)
 				tf_input_section.erase(tf_input_section.begin(), tf_input_section.begin() + n_taps / 2);
 				tf_input_section.erase(tf_input_section.end() - n_taps / 2, tf_input_section.end());
 				centroid_section.erase(centroid_section.begin(),centroid_section.begin() + 2 * (n_taps / 2));
@@ -836,37 +974,21 @@ void processing_thread::learn_transfer_function() {
 				sum = std::accumulate(centroid_section.begin(), centroid_section.end(),0.0);
 				double filtered_mean = sum / centroid_section.size();
 				
-				qDebug() << "filtered mean";
-				qDebug() << filtered_mean;
+				//qDebug() << "filtered mean";
+				//qDebug() << filtered_mean;
 
 				// FIX MEAN OFFSET INTRODUCED BY FILTER
 				for (double& d : centroid_section)
 					d += centroid_mean - filtered_mean;
 
-				// CREATE ARMADILLO OBJECTS
-				DAC_in = vec(tf_input_section);
-				centroid_in = vec(centroid_section);
 
-				DAC_diff = diff(vec(tf_input_section));
-				centroid_diff = diff(vec(centroid_section));
-				
-				
-				if (j == 1) {
-
-					to_plot.push_back(QVector<double>::fromStdVector(tf_input_section));
-					to_plot.push_back(QVector<double>::fromStdVector(centroid_section));
-
-				}
-
-				// CONCATENATE SECTIONS FOR LEAST SQUARES
-				DAC_in.shed_row(0);
-				centroid_in.shed_row(0);
-
-				DAC_full = join_cols(DAC_full, DAC_in);
-				centroid_full = join_cols(centroid_full, centroid_in);
+				DAC_full = join_cols(DAC_full, vec(tf_input_section).subvec(2,tf_input_section.size()-1));
+				centroid_full = join_cols(centroid_full, vec(centroid_section).subvec(2,centroid_section.size()-1));
 			
-				dDAC_full = join_cols(dDAC_full, DAC_diff);
-				dcentroid_full = join_cols(dcentroid_full, centroid_diff);
+				dDAC_full = join_cols(dDAC_full, diff(vec(tf_input_section).subvec(1,tf_input_section.size()-1)));
+				//dcentroid_full = join_cols(dcentroid_full, diff(vec(tf_input_section).subvec(1,centroid_in.size()-1)));
+
+				ddDAC_full = join_cols(ddDAC_full, diff(vec(tf_input_section), 2));
 
 			}
 
@@ -874,32 +996,38 @@ void processing_thread::learn_transfer_function() {
 
 			vec errors = centroid_full - (lin_sol(0) * DAC_full + lin_sol(1));
 
-			mat correction = solve(join_rows(dDAC_full, dcentroid_full), errors);
+			mat correction = solve(join_rows(dDAC_full, ddDAC_full), errors);
 
 			std::array<double,4> fit = {lin_sol(0), lin_sol(1), correction(0), correction(1)};
 
 			fit_params.push_back(fit);
 
-			model_RMSE.push_back(sqrt(arma::sum(square(errors - (correction(0)*dDAC_full + correction(1)*dcentroid_full)))/ dcentroid_full.n_rows));
-
-		}
-
+			model_RMSE.push_back(sqrt(arma::sum(square(errors - (correction(0)*dDAC_full + correction(1)*(ddDAC_full))))/ ddDAC_full.n_rows));
+			
+			vec simulated = centroid_full + errors - (correction(0)*dDAC_full + correction(1)*(ddDAC_full));
+			
+			to_plot.push_back(QVector<double>::fromStdVector(arma::conv_to<std::vector<double>>::from(DAC_full)));
+			to_plot.push_back(QVector<double>::fromStdVector(arma::conv_to<std::vector<double>>::from(centroid_full)));
+			to_plot.push_back(QVector<double>::fromStdVector(arma::conv_to<std::vector<double>>::from(simulated)));
 		
-		emit write_to_log(" centroid_y = " + QString::number(fit_params[1][0], 'e', 2) + "x + " +
+		}
+		
+
+		emit write_to_log(" centroid_y = " + QString::number(fit_params[1][0], 'e', 2) + "y + " +
 			QString::number(fit_params[1][1], 'e', 2) + " - (" +
-			QString::number(fit_params[1][2], 'e', 2) + "x' + " +
-			QString::number(fit_params[1][3], 'e', 2) + "centroid_y') ");
+			QString::number(fit_params[1][2], 'e', 2) + "dy + " +
+			QString::number(fit_params[1][3], 'e', 2) + " dcentroid_y) ");
 		
 		emit write_to_log(" centroid_x = " + QString::number(fit_params[1][0], 'e', 2) + "x + " +
 			QString::number(fit_params[1][1], 'e', 2) + " - (" +
-			QString::number(fit_params[1][2], 'e', 2) + "x' + " +
-			QString::number(fit_params[1][3], 'e', 2) + "centroid_x'') ");
+			QString::number(fit_params[1][2], 'e', 2) + "dx + " +
+			QString::number(fit_params[1][3], 'e', 2) + " dcentroid_x) ");
 
 
 		emit write_to_log(" x model RMSE: " + QString::number(model_RMSE[0],'g',2) + " px");
 		emit write_to_log(" y model RMSE: " + QString::number(model_RMSE[1],'g',2) + " px");
 	
-		emit update_tf_plot(to_plot[0], to_plot[1], to_plot[2], to_plot[3]);
+		emit update_tf_plot(to_plot);
 
 		emit finished_analysis();
 	}

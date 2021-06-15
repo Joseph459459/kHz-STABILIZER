@@ -69,11 +69,6 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="barf.png">
-      <Filter>Resource Files</Filter>
-    </Image>
-  </ItemGroup>
-  <ItemGroup>
     <QtMoc Include="cameraselect.h">
       <Filter>Header Files</Filter>
     </QtMoc>

@@ -14,6 +14,14 @@ struct complex {
 
 struct axes_cell {
 
+	
+	void set_actuator_constants(std::array<double, 4> fit_params) {
+		A = fit_params[0];
+		B = fit_params[1];
+		C = fit_params[2];
+		D = fit_params[3];
+	}
+
 	float* noise;
 
 	complex Chi[max_tones];
@@ -25,7 +33,10 @@ struct axes_cell {
 	int num_tones;
 	float differential;
 	int maxN;
-	float tf_params[5];
+	float A;
+	float B;
+	float C;
+	float D;
 	double solved_cubic[3];
 	int num_sols;
 	float noise_element = 0;
@@ -34,11 +45,10 @@ struct axes_cell {
 	float b;
 	int DAC_cmds[3] = { 0 };
 	float SET_POINT;
-	int temp_cmds[3];
 	
-#define P_ctrl_samples 10
+#define moving_avg_window 20
 
-	float running_avg[P_ctrl_samples];
+	float running_avg[moving_avg_window];
 	float error = 0;
 
 	int Wrap(int N, int L, int H) {
@@ -67,19 +77,20 @@ struct axes_cell {
 			differential += mag * (cosf(w[j] * (N[j]) + phase) - cosf(w[j] * (N[j] - 1) + phase));
 		}
 
-		running_avg[n % P_ctrl_samples] = in / static_cast<float>(P_ctrl_samples);
+		running_avg[n % moving_avg_window] = in / static_cast<float>(moving_avg_window);
 
-		if (n > maxN + P_ctrl_samples) {
-			error = std::accumulate(running_avg, running_avg + P_ctrl_samples, 0.f) - SET_POINT;
+		if (n > maxN + moving_avg_window) {
+			error = std::accumulate(running_avg, running_avg + moving_avg_window, 0.f) - SET_POINT;
 		}
 
 		//target[0] = 2 * SET_POINT - (in + differential);
 		target[0] -= differential;
-		target[0] -= error/static_cast<float>(P_ctrl_samples);
+		target[0] -= error/static_cast<float>(moving_avg_window);
 		  
-		DAC_cmds[0]  = round((target[0] * (1 + tf_params[3]) - tf_params[3] * target[1] - tf_params[2] * DAC_cmds[1] - tf_params[1])
-			/ (tf_params[0] - tf_params[2]));
+		//DAC_cmds[0]  = round((target[0] * (1 + tf_params[3]) - tf_params[3] * target[1] - tf_params[2] * DAC_cmds[1] - tf_params[1])
+		//	/ (tf_params[0] - tf_params[2]));
 
+		DAC_cmds[0] = (target[0] - B - (C + 2 * D) * DAC_cmds[1] + D * DAC_cmds[2]) / (A - C - D);
 
 		DAC_cmds[0] = std::max(DAC_cmds[0], 0);
 		DAC_cmds[0] = std::min(DAC_cmds[0], 4095);

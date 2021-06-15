@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>613</width>
+    <width>539</width>
     <height>367</height>
    </rect>
   </property>
@@ -618,6 +618,13 @@ QRadioButton::indicator:unchecked {
           <string>Log</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_4">
+          <item row="1" column="0">
+           <widget class="QLineEdit" name="cmdLineBox">
+            <property name="toolTip">
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;To change drive frequencies, enter three frequencies (Hz) separated by commas.&lt;/p&gt;&lt;p&gt;To change the DAC bit ranges, enter two bit depths (0-4095) separated by commas.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+            </property>
+           </widget>
+          </item>
           <item row="0" column="0">
            <widget class="Console" name="console">
             <property name="palette">
@@ -749,13 +756,6 @@ QRadioButton::indicator:unchecked {
             </property>
            </widget>
           </item>
-          <item row="1" column="0">
-           <widget class="QLineEdit" name="cmdLineBox">
-            <property name="toolTip">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;To change drive frequencies, enter three frequencies (Hz) separated by commas.&lt;/p&gt;&lt;p&gt;To change the DAC bit ranges, enter two bit depths (0-4095) separated by commas.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-            </property>
-           </widget>
-          </item>
          </layout>
         </widget>
         <widget class="QWidget" name="transferFunctionTab">
@@ -807,7 +807,7 @@ QRadioButton::indicator:unchecked {
  </resources>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
   <buttongroup name="buttonGroup_2"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>

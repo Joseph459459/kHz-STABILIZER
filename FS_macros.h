@@ -14,6 +14,7 @@
 #define STOP_FLAG 5
 #define CONTINUE 6
 #define INIT 7
+#define READ_NEW_PARAMS 8
 #define SYNC_FLAG 254
 #define bit_depth 4096
 
@@ -29,23 +30,23 @@ inline void tf_input_(T* tf_input_arr, uint16_t yDACmax, float* freqs) {
 	int idx = 0;
 	int i;
 
-	tf_input_arr[0] = 2048;
+	tf_input_arr[0] = yDACmax / 2;
 
 	++idx;
 
 	for (i = 0; i < section_width; ++i) {
 
-		tf_input_arr[i + idx] = round(2048 + (500 + i) * sinf(2 * PI * freqs[0] / 1000 * i));
+		tf_input_arr[i + idx] = round((double)yDACmax / 2 + ((double) yDACmax / 4 + (double) yDACmax / 4 * i / 1000) * sinf(2 * PI * freqs[0] / 1000 * i));
 	}
 	idx += section_width;
 	
 	for (i = 0; i < section_width; ++i) {
-		tf_input_arr[i + idx] = round(2048 + (1500 - i) * sinf(2 * PI * freqs[1] / 1000 * i));
+		tf_input_arr[i + idx] = round((double)yDACmax / 2 + ((double) yDACmax / 2 - (double) yDACmax / 4 * i / 1000) * sinf(2 * PI * freqs[1] / 1000 * i));
 	}
 	idx += section_width;
 
 	for (i = 0; i < section_width; ++i) {
-		tf_input_arr[i + idx] = round(2048 + (500 + i) * sinf(2 * PI * freqs[2] / 1000 * i));
+		tf_input_arr[i + idx] = round((double)yDACmax / 2 + ((double) yDACmax / 4 + (double) yDACmax / 4 * i / 1000) * sinf(2 * PI * freqs[2] / 1000 * i));
 	}
 	idx += section_width;
 
