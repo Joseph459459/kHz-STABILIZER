@@ -27,10 +27,13 @@
     <QtUic Include="cameraselect.ui">
       <Filter>Form Files</Filter>
     </QtUic>
-    <QtUic Include="camview.ui">
+    <QtUic Include="FASTSTABILIZER.ui">
       <Filter>Form Files</Filter>
     </QtUic>
-    <QtUic Include="FASTSTABILIZER.ui">
+    <QtUic Include="feedback_cam.ui">
+      <Filter>Form Files</Filter>
+    </QtUic>
+    <QtUic Include="monitor_cam.ui">
       <Filter>Form Files</Filter>
     </QtUic>
   </ItemGroup>
@@ -39,9 +42,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="cameraselect.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="camview.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="console.cpp">
@@ -59,6 +59,12 @@
     <ClCompile Include="qcustomplot.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="feedback_cam.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="monitor_cam.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtRcc Include="khz_STABILIZER.qrc" />
@@ -70,9 +76,6 @@
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="cameraselect.h">
-      <Filter>Header Files</Filter>
-    </QtMoc>
-    <QtMoc Include="camview.h">
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="console.h">
@@ -88,6 +91,12 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="qcustomplot.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="feedback_cam.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="monitor_cam.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

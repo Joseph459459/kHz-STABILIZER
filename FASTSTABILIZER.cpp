@@ -7,8 +7,8 @@ time_point<std::chrono::steady_clock> t1;
 time_point<std::chrono::steady_clock> t2;
 
 
-FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo info, QWidget* parent)
-	: QMainWindow(parent), proc_thread(info, this), x_filters(6), y_filters(6),animateTimer(this), CV(nullptr)
+FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, QWidget* parent)
+	: QMainWindow(parent), proc_thread(fb_info, this), x_filters(6), y_filters(6),animateTimer(this), FC(nullptr), MC(nullptr)
 {
 	ui.setupUi(this);
 
@@ -20,8 +20,24 @@ FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo info, QWidget* parent)
 	
 }
 
+FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget* parent)
+	: QMainWindow(parent), proc_thread(fb_info, m_info, this), x_filters(6), y_filters(6), animateTimer(this), FC(nullptr), MC(nullptr)
+{
+	ui.setupUi(this);
+
+	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::error_handling);
+
+	create_fft_plots();
+	create_tf_plots();
+
+}
+
 FASTSTABILIZER::~FASTSTABILIZER() {
-	proc_thread.camera.DestroyDevice();
+	proc_thread.fb_cam.DestroyDevice();
+	
+	if (proc_thread.monitor_cam_enabled)
+		proc_thread.monitor_cam.DestroyDevice();
+
 	PylonTerminate();
 }
 
@@ -29,12 +45,12 @@ void FASTSTABILIZER::on_stopButton_clicked() {
 
 	proc_thread.acquiring = false;
 
-	//proc_thread.quit();
+	proc_thread.quit();
 
-	//if (!proc_thread.wait(3000)) {
-	//	proc_thread.terminate();
-	//	proc_thread.wait();
-	//}
+	if (!proc_thread.wait(3000)) {
+		proc_thread.terminate();
+		proc_thread.wait();
+	}
 
 	ui.stabilizeButton->setChecked(false);
 }
@@ -57,9 +73,12 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 		return;
 	}
 
-	CV->safe_thread_close();
+	FC->safe_thread_close();
 
-	CV->close();
+	FC->close();
+
+	if (proc_thread.monitor_cam_enabled)
+		MC->close();
 
 	update_procthread();
 
@@ -77,22 +96,40 @@ void FASTSTABILIZER::update_log(QString q) {
 
 void FASTSTABILIZER::on_learnButton_clicked() {
 
-	CV = new camview(&proc_thread, this);
-	connect(&proc_thread, &processing_thread::updateimagesize, CV, &camview::updateimagesize, Qt::BlockingQueuedConnection);
-	connect(CV, &camview::write_to_log, this, &FASTSTABILIZER::update_log);
 	qRegisterMetaType<GrabResultPtr_t>("GrabResultPtr_t");
-	qRegisterMetaType<std::array<double,3>>("std::array<double,3>");
-	connect(&proc_thread, &processing_thread::sendimageptr, CV, &camview::updateimage);
-	connect(&proc_thread, &processing_thread::send_imgptr_blocking, CV, &camview::updateimage,Qt::BlockingQueuedConnection);
+	qRegisterMetaType<std::array<double, 3>>("std::array<double,3>");
+	qRegisterMetaType<QVector<double>>("QVector<double>");
+
+	proc_thread.fb_cam.Open();
+	
+	if (proc_thread.monitor_cam_enabled)
+		proc_thread.monitor_cam.Open();
+
+	FC = new feedback_cam(&proc_thread, this);
+	connect(&proc_thread, &processing_thread::updateimagesize, FC, &feedback_cam::updateimagesize, Qt::BlockingQueuedConnection);
+	connect(FC, &feedback_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
 
 	qRegisterMetaType<QVector<QVector<double>>>("QVector<QVector<double>>");
+	connect(&proc_thread, &processing_thread::send_feedback_ptr, FC, &feedback_cam::updateimage);
+	connect(&proc_thread, &processing_thread::send_imgptr_blocking, FC, &feedback_cam::updateimage,Qt::BlockingQueuedConnection);
 
 	connect(&proc_thread, &processing_thread::update_fft_plot, this, &FASTSTABILIZER::update_fft_plot);
 	connect(&proc_thread, &processing_thread::update_tf_plot, this, &FASTSTABILIZER::update_tf_plot);
 
-	CV->setAttribute(Qt::WA_DeleteOnClose);
+	FC->setAttribute(Qt::WA_DeleteOnClose);
 
-	CV->show();
+	if (proc_thread.monitor_cam_enabled) {
+
+		MC = new monitor_cam(&proc_thread, this);
+		connect(&proc_thread, &processing_thread::updateimagesize, MC, &monitor_cam::updateimagesize, Qt::BlockingQueuedConnection);
+		connect(MC, &monitor_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
+		connect(&proc_thread, &processing_thread::send_monitor_ptr, MC, &monitor_cam::updateimage);
+		connect(&proc_thread, &processing_thread::send_imgptr_blocking, MC, &monitor_cam::updateimage, Qt::BlockingQueuedConnection);
+		connect(FC, &QDockWidget::destroyed, MC, &QDockWidget::deleteLater);
+		MC->show();
+	}
+
+	FC->show();
 
 	proc_thread.plan = STREAM;
 	proc_thread.start();
@@ -417,8 +454,6 @@ void FASTSTABILIZER::remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* 
 	for (int i = 2;i < 14; ++i) {
 		if (!QString::compare(p->name(), QString::number(i))) {
 
-
-
 			ui.plot->graph(i)->data()->clear();
 			ui.plotLabel->clear();
 			ui.plot->replot();
@@ -474,7 +509,6 @@ void FASTSTABILIZER::update_freq_label(int N, int graphdatapos) {
 	ui.plotLabel->setText("Freq: " + QString::number(graphdatapos / (_window / 2.0) * 500) +
 		" Hz | Window: " + QString::number(N) + " ms ");
 
-
 }
 
 void FASTSTABILIZER::update_procthread() {
@@ -509,7 +543,7 @@ void FASTSTABILIZER::update_procthread() {
 void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
 	
 
-	if (CV == nullptr) {
+	if (FC == nullptr) {
 		ui.cmdLineBox->clear();
 		return;
 	}

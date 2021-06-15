@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>camview</class>
- <widget class="QDockWidget" name="camview">
+ <class>feedback_cam</class>
+ <widget class="QDockWidget" name="feedback_cam">
   <property name="geometry">
    <rect>
     <x>0</x>
