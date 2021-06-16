@@ -25,7 +25,7 @@ FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget*
 {
 	ui.setupUi(this);
 
-	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::error_handling);
+	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::update_log);
 
 	create_fft_plots();
 	create_tf_plots();
@@ -80,7 +80,7 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 	if (proc_thread.monitor_cam_enabled)
 		MC->close();
 
-	update_procthread();
+	update_filter_params();
 
 	proc_thread.plan = STABILIZE;
 	proc_thread.start(QThread::TimeCriticalPriority);
@@ -106,8 +106,7 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 		proc_thread.monitor_cam.Open();
 
 	FC = new feedback_cam(&proc_thread, this);
-	connect(&proc_thread, &processing_thread::updateimagesize, FC, &feedback_cam::updateimagesize, Qt::BlockingQueuedConnection);
-	connect(FC, &feedback_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
+	connect(FC, &feedback_cam::write_to_log, this, &FASTSTABILIZER::update_log);
 
 	qRegisterMetaType<QVector<QVector<double>>>("QVector<QVector<double>>");
 	connect(&proc_thread, &processing_thread::send_feedback_ptr, FC, &feedback_cam::updateimage);
@@ -121,8 +120,7 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 	if (proc_thread.monitor_cam_enabled) {
 
 		MC = new monitor_cam(&proc_thread, this);
-		connect(&proc_thread, &processing_thread::updateimagesize, MC, &monitor_cam::updateimagesize, Qt::BlockingQueuedConnection);
-		connect(MC, &monitor_cam::write_to_log, this, &FASTSTABILIZER::error_handling);
+		connect(MC, &monitor_cam::write_to_log, this, &FASTSTABILIZER::update_log);
 		connect(&proc_thread, &processing_thread::send_monitor_ptr, MC, &monitor_cam::updateimage);
 		connect(&proc_thread, &processing_thread::send_imgptr_blocking, MC, &monitor_cam::updateimage, Qt::BlockingQueuedConnection);
 		connect(FC, &QDockWidget::destroyed, MC, &QDockWidget::deleteLater);
@@ -511,7 +509,7 @@ void FASTSTABILIZER::update_freq_label(int N, int graphdatapos) {
 
 }
 
-void FASTSTABILIZER::update_procthread() {
+void FASTSTABILIZER::update_filter_params() {
 
 	proc_thread.x_tones.clear();
 	proc_thread.x_N.clear();
@@ -554,3 +552,4 @@ void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
 	ui.cmdLineBox->clear();
 
 }
+

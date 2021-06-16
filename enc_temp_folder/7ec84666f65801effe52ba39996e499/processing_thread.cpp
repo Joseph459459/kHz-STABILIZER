@@ -1215,7 +1215,7 @@ void processing_thread::correlate_cameras() {
 		arr.StartGrabbing();
 
 		CGrabResultPtr img_ptr;
-		
+
 		for (int i = 0; i < 30; ++i) {
 			arr.RetrieveResult(300, img_ptr);
 			qDebug() << img_ptr->GetCameraContext();

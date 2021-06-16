@@ -65,6 +65,7 @@ public slots:
 	void stabilize();
 	void stream();
 	void analyze_spectrum();
+	void correlate_cameras();
 	void find_driving_freqs();
 	void adjust_framerate();
 	void find_actuator_range();
@@ -72,13 +73,13 @@ public slots:
 	void setup_stabilize();
 	void identify_initial_vals();
 	void receive_cmd_line_data(QStringList cmd_str);
+	void test_loop_times();
 
 signals:
 	void write_to_log(QString q);
 	void send_feedback_ptr(GrabResultPtr_t ptr);
 	void send_monitor_ptr(GrabResultPtr_t ptr);
 	void send_imgptr_blocking(GrabResultPtr_t ptr);
-	void updateimagesize(int feedback_width, int feedback_height,int monitor_width, int monitor_height);
 	void updateprogress(int i);
 	void update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y);
 	void update_tf_plot(QVector<QVector<double>> to_plot);

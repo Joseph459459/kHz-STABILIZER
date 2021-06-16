@@ -20,6 +20,8 @@ uint16_t yDACmax = 0;
 
 bool switch_ = false;
 
+uint16_t sine_sweep[6000];
+
 void setup()
 {
 	pinMode(LED_BUILTIN, OUTPUT);
@@ -32,6 +34,13 @@ void setup()
 	Serial.begin(115200);
 
 	post_setup();
+
+	int freqs[6] = { 60,90,120,150,180,210 };
+	
+	for (j = 0; j < 6; ++j) {
+		for (i = 0; i < 1000; ++i)
+			sine_sweep[i + 1000*j] = round(500 * sin(2 * PI * freqs[j] * i) + 2048);
+	}
 }
 
 
@@ -59,6 +68,10 @@ void post_setup() {
 			stabilize();
 			break;
 
+		case TEST_LOOP_TIME:
+			test_loop_times();
+			break;
+
 		default:
 			taper_down();
 
@@ -73,17 +86,19 @@ void loop() {
 }
 
 
-void stabilize() {
-	
+void test_loop_times() {
+
 	digitalWriteFast(LED_BUILTIN, HIGH);
 
-	init_actuator();
+	int w = 0;
+	int loops[5000];
 
 	while (true) {
 
-		elapsedMillis m;
+		elapsedMicros m;
 		while (!Serial.available()) {
-			if (m > 5000) {
+			if (m > 5e6) {
+				Serial.write((const byte*)loops, 5000 * 4);
 				taper_down();
 				return;
 			}
@@ -96,12 +111,44 @@ void stabilize() {
 
 			Serial.readBytes((char*)in, 4);
 
-			//analogWriteDAC1(in[0]);
-
-			analogWriteDAC1(switch_ ? 600 : 0);
-			switch_ = !switch_;
+			analogWriteDAC1(0);
 
 		}
+
+		loops[w] = m;
+		++w;
+
+	}
+
+	Serial.write((const byte*)loops, 5000 * 4);
+}
+
+void stabilize() {
+	
+	digitalWriteFast(LED_BUILTIN, HIGH);
+
+	init_actuator();
+
+	while (true) {
+
+		elapsedMicros m;
+		while (!Serial.available()) {
+			if (m > 5e6) {
+				taper_down();
+				return;
+			}
+		}
+
+		if (Serial.read() != SYNC_FLAG) {
+			Serial.clear();
+		}
+
+		else {
+
+			Serial.readBytes((char*)in, 4);
+			analogWriteDAC1(in[0]);
+		}
+
 	}
 }
 

@@ -24,6 +24,7 @@ feedback_cam::feedback_cam(processing_thread* thread, QWidget* parent)
 	ui.exposureBox->setRange(proc_thread->fb_cam.ExposureTimeAbs.GetMin(), proc_thread->fb_cam.ExposureTimeAbs.GetMax());
 	ui.exposureBox->setValue(proc_thread->fb_cam.ExposureTimeAbs.GetValue());
 	proc_thread->fb_cam.AcquisitionFrameRateEnable.SetValue(true);
+	updateimagesize(proc_thread->fb_cam.Width.GetValue(), proc_thread->fb_cam.Height.GetValue());
 
 	this->setAttribute(Qt::WA_DeleteOnClose);
 }
@@ -57,7 +58,7 @@ void feedback_cam::updateimage(GrabResultPtr_t ptr) {
 	}
 	
 	ui.imageLabel->setPixmap(QPixmap::fromImage(*qColored));
-	ptr.Release();
+	//ptr.Release();
 }
 
 void feedback_cam::on_findCentroidButton_clicked() {
@@ -201,18 +202,15 @@ void feedback_cam::on_zoomOutButton_clicked() {
 
 void feedback_cam::on_resetButton_clicked() {
 
-	proc_thread->blockSignals(true);
-	proc_thread->acquiring = false;
-	while (!proc_thread->isFinished()) {
-		QCoreApplication::processEvents();
-	};
+	safe_thread_close();
 
 	proc_thread->fb_cam.OffsetX.SetValue(0);
 	proc_thread->fb_cam.OffsetY.SetValue(0);
 	proc_thread->fb_cam.Width.SetValue(proc_thread->fb_cam.WidthMax());
 	proc_thread->fb_cam.Height.SetValue(proc_thread->fb_cam.HeightMax());
 
-	proc_thread->blockSignals(false);
+	updateimagesize(proc_thread->fb_cam.Width.GetValue(), proc_thread->fb_cam.Height.GetValue());
+
 	proc_thread->start();
 
 }
@@ -229,7 +227,7 @@ void feedback_cam::finished_analysis()
 
 void feedback_cam::on_noiseSpectrumButton_clicked() {
 
-	this->safe_thread_close();
+	safe_thread_close();
 
 	progressbox = new QProgressDialog("Recording...", "Abort", 0, _window, this);
 	progressbox->setAutoClose(true);
@@ -248,9 +246,29 @@ void feedback_cam::on_noiseSpectrumButton_clicked() {
 
 }
 
+void feedback_cam::on_correlateCamerasButton_clicked() {
+
+	safe_thread_close();
+	
+	//progressbox = new QProgressDialog("Recording...", "Abort", 0, _window, this);
+	//progressbox->setAutoClose(true);
+	//progressbox->setAttribute(Qt::WA_DeleteOnClose);
+	//progressbox->setWindowTitle(QString("Recording..."));
+	//connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
+	//progressbox->show();
+	//progressbox->raise();
+	//progressbox->setDisabled(false);
+
+
+	proc_thread->plan = CORRELATE;
+	this->setDisabled(true);
+	proc_thread->start(QThread::TimeCriticalPriority);
+
+}
+
 void feedback_cam::on_actuatorRangeButton_clicked() {
 	
-	this->safe_thread_close();
+	safe_thread_close();
 
 	proc_thread->plan = FIND_RANGE;
 
@@ -259,7 +277,7 @@ void feedback_cam::on_actuatorRangeButton_clicked() {
 
 void feedback_cam::on_transferFunctionButton_clicked() {
 
-	this->safe_thread_close();
+	safe_thread_close();
 	
 	proc_thread->plan = LEARN_TF;
 	proc_thread->start(QThread::TimeCriticalPriority);
@@ -295,7 +313,7 @@ void feedback_cam::on_leftButton_clicked() {
 
 void feedback_cam::on_triggerButton_toggled(bool j) {
 
-	this->safe_thread_close();
+	safe_thread_close();
 
 	if (j) {
 		proc_thread->fb_cam.AcquisitionFrameRateEnable.SetValue(false);

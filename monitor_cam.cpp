@@ -23,6 +23,7 @@ monitor_cam::monitor_cam(processing_thread* thread, QWidget* parent)
 	ui.exposureBox->setRange(proc_thread->monitor_cam.ExposureTimeAbs.GetMin(), proc_thread->monitor_cam.ExposureTimeAbs.GetMax());
 	ui.exposureBox->setValue(proc_thread->monitor_cam.ExposureTimeAbs.GetValue());
 	proc_thread->monitor_cam.AcquisitionFrameRateEnable.SetValue(true);
+	updateimagesize(proc_thread->monitor_cam.Width.GetValue(), proc_thread->monitor_cam.Height.GetValue());
 
 	this->setAttribute(Qt::WA_DeleteOnClose);
 }
@@ -74,8 +75,11 @@ void monitor_cam::on_findCentroidButton_clicked() {
 
 	proc_thread->monitor_cam.Height.SetValue(proc_thread->monitor_cam.Height.GetMax());
 	proc_thread->monitor_cam.Width.SetValue(proc_thread->monitor_cam.Width.GetMax());
+
 	int trycount = 0;
+
 tryagain:
+	
 	if (!proc_thread->monitor_cam.GrabOne(300, ptr)) {
 		emit write_to_log(QString("Timeout while searching for centroid."));
 
@@ -199,18 +203,15 @@ void monitor_cam::on_zoomOutButton_clicked() {
 
 void monitor_cam::on_resetButton_clicked() {
 
-	proc_thread->blockSignals(true);
-	proc_thread->acquiring = false;
-	while (!proc_thread->isFinished()) {
-		QCoreApplication::processEvents();
-	};
+	safe_thread_close();
 
 	proc_thread->monitor_cam.OffsetX.SetValue(0);
 	proc_thread->monitor_cam.OffsetY.SetValue(0);
 	proc_thread->monitor_cam.Width.SetValue(proc_thread->monitor_cam.WidthMax());
 	proc_thread->monitor_cam.Height.SetValue(proc_thread->monitor_cam.HeightMax());
 
-	proc_thread->blockSignals(false);
+	updateimagesize(proc_thread->monitor_cam.Width.GetValue(), proc_thread->monitor_cam.Height.GetValue());
+
 	proc_thread->start();
 
 }
@@ -219,7 +220,6 @@ void monitor_cam::finished_analysis()
 {
 	this->setDisabled(false);
 }
-
 
 void monitor_cam::on_exposureBox_valueChanged(int i) {
 
@@ -251,7 +251,7 @@ void monitor_cam::on_leftButton_clicked() {
 
 void monitor_cam::on_triggerButton_toggled(bool j) {
 
-	this->safe_thread_close();
+	safe_thread_close();
 
 	if (j) {
 		proc_thread->monitor_cam.AcquisitionFrameRateEnable.SetValue(false);

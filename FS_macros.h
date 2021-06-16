@@ -14,7 +14,8 @@
 #define STOP_FLAG 5
 #define CONTINUE 6
 #define INIT 7
-#define READ_NEW_PARAMS 8
+#define CORRELATE 8
+#define TEST_LOOP_TIME 9
 #define SYNC_FLAG 254
 #define bit_depth 4096
 

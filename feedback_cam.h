@@ -29,6 +29,7 @@ public slots:
 	void on_zoomInButton_clicked();
 	void on_zoomOutButton_clicked();
 	void on_noiseSpectrumButton_clicked();
+	void on_correlateCamerasButton_clicked();
 	void on_exposureBox_valueChanged(int);
 	void on_upButton_clicked();
 	void on_downButton_clicked();
