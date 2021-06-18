@@ -275,6 +275,14 @@ void feedback_cam::on_actuatorRangeButton_clicked() {
 	proc_thread->start();
 }
 
+void feedback_cam::on_loopTimeButton_clicked() {
+
+	safe_thread_close();
+	this->setDisabled(true);
+	proc_thread->plan = TEST_LOOP_TIME;
+	proc_thread->start(QThread::TimeCriticalPriority);
+}
+
 void feedback_cam::on_transferFunctionButton_clicked() {
 
 	safe_thread_close();

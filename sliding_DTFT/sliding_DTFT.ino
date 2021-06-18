@@ -25,6 +25,7 @@ uint16_t sine_sweep[6000];
 void setup()
 {
 	pinMode(LED_BUILTIN, OUTPUT);
+	pinMode(A14, OUTPUT);
 
 	adc->adc0->setAveraging(16);
 	adc->adc0->setResolution(12);
@@ -39,10 +40,9 @@ void setup()
 	
 	for (j = 0; j < 6; ++j) {
 		for (i = 0; i < 1000; ++i)
-			sine_sweep[i + 1000*j] = round(500 * sin(2 * PI * freqs[j] * i) + 2048);
+			sine_sweep[i + 1000*j] = round(500 * (1 - cos(2 * PI * freqs[j] * i)));
 	}
 }
-
 
 void post_setup() {
 
@@ -76,51 +76,80 @@ void post_setup() {
 			taper_down();
 
 		}
-
 	}
 }
-
 
 void loop() {
 
 }
 
+elapsedMicros t;
 
 void test_loop_times() {
 
 	digitalWriteFast(LED_BUILTIN, HIGH);
 
-	int w = 0;
-	int loops[5000];
+	int t_start = 0;
+	std::vector<int> loop_times(5000);
+	std::vector<int> shot_number(5000);
+	int* shot_ptr = shot_number.data();
 
-	while (true) {
+	for (int k = 0; k < 5000; ++k) {
+
+		t_start = t;
+		digitalWriteFast(A14, HIGH);
 
 		elapsedMicros m;
 		while (!Serial.available()) {
 			if (m > 5e6) {
-				Serial.write((const byte*)loops, 5000 * 4);
-				taper_down();
-				return;
+				break;
 			}
 		}
 
 		if (Serial.read() != SYNC_FLAG) {
+			loop_times[k] = 0;
 			Serial.clear();
 		}
+
 		else {
 
-			Serial.readBytes((char*)in, 4);
-
+			Serial.readBytes((char*)shot_ptr, 4);
 			analogWriteDAC1(0);
+			loop_times[k] = t - t_start;
 
 		}
 
-		loops[w] = m;
-		++w;
+		shot_ptr++;
+		digitalWriteFast(A14, LOW);
+		delay(1);
 
 	}
 
-	Serial.write((const byte*)loops, 5000 * 4);
+	write_large_serial_buffer(loop_times, 4000);
+	write_large_serial_buffer(shot_number, 4000);
+
+}
+
+void write_large_serial_buffer(std::vector<int> &buffer, int chunk_size) {
+
+	const int tot_bytes = buffer.size() * sizeof(int);
+	int tot_bytes_written = 0;
+	int* curr_pos = buffer.data();
+
+	while (tot_bytes_written < tot_bytes) {
+
+		while (!Serial.available());
+
+		if (Serial.read() == CONTINUE) {
+			int bytes_written = Serial.write((const byte*)curr_pos, chunk_size);
+			if (bytes_written != chunk_size)
+				return;
+			tot_bytes_written += bytes_written;
+			curr_pos += chunk_size / sizeof(int);
+		}
+
+	}
+
 }
 
 void stabilize() {
@@ -159,7 +188,6 @@ void learn_tf() {
 	Serial.readBytes((char*)drive_freqs, 12);
 	Serial.readBytes((char*)&yDACmax, 2);
 	
-
 	tf_input_(tf_input_arr,yDACmax,drive_freqs);
 
 	init_actuator();

@@ -71,9 +71,11 @@ public slots:
 	void find_actuator_range();
 	void learn_transfer_function();
 	void setup_stabilize();
+	void receive_large_serial_buffer(QSerialPort& teensy, std::vector<int>& buffer, int chunk_size);
 	void identify_initial_vals();
 	void receive_cmd_line_data(QStringList cmd_str);
 	void test_loop_times();
+	void open_port(QSerialPort& teensy);
 
 signals:
 	void write_to_log(QString q);

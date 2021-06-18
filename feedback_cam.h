@@ -25,6 +25,7 @@ public slots:
 	void on_findCentroidButton_clicked();
 	void on_actuatorRangeButton_clicked();
 	void on_transferFunctionButton_clicked();
+	void on_loopTimeButton_clicked();
 	void updateimagesize(int width, int height);
 	void on_zoomInButton_clicked();
 	void on_zoomOutButton_clicked();

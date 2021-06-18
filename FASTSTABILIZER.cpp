@@ -5,7 +5,8 @@ using namespace std::chrono;
 #define T_STOP t2 = high_resolution_clock::now(); qDebug() << duration_cast<microseconds>(t2-t1).count();
 time_point<std::chrono::steady_clock> t1;
 time_point<std::chrono::steady_clock> t2;
-
+#include <iostream>
+#include <fstream>
 
 FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, QWidget* parent)
 	: QMainWindow(parent), proc_thread(fb_info, this), x_filters(6), y_filters(6),animateTimer(this), FC(nullptr), MC(nullptr)
@@ -17,7 +18,7 @@ FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, QWidget* parent)
 
 	create_fft_plots();
 	create_tf_plots();
-	
+		
 }
 
 FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget* parent)
@@ -26,6 +27,7 @@ FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget*
 	ui.setupUi(this);
 
 	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::update_log);
+	connect(this, &FASTSTABILIZER::send_cmd_line_data, &proc_thread, &processing_thread::receive_cmd_line_data);
 
 	create_fft_plots();
 	create_tf_plots();
@@ -540,14 +542,12 @@ void FASTSTABILIZER::update_filter_params() {
 
 void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
 	
-
 	if (FC == nullptr) {
 		ui.cmdLineBox->clear();
 		return;
 	}
 
 	emit send_cmd_line_data(ui.cmdLineBox->text().split(','));
-
 
 	ui.cmdLineBox->clear();
 
