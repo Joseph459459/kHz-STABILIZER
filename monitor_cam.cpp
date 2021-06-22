@@ -78,6 +78,7 @@ void monitor_cam::on_findCentroidButton_clicked() {
 
 	int trycount = 0;
 
+
 tryagain:
 	
 	if (!proc_thread->monitor_cam.GrabOne(300, ptr)) {
@@ -99,8 +100,10 @@ tryagain:
 			if (trycount > 7) {
 				updateimagesize(proc_thread->monitor_cam.WidthMax(), proc_thread->monitor_cam.HeightMax());
 				emit write_to_log("Could not find Centroid. Make sure the sensor is clear and there is a threshold.");
-				goto end;
-			}
+                proc_thread->blockSignals(false);
+                proc_thread->start();
+                return;
+            }
 
 			goto tryagain;
 
@@ -130,9 +133,6 @@ tryagain:
 		else
 			proc_thread->monitor_cam.OffsetY.SetValue(yminus);
 
-	end:
-		proc_thread->blockSignals(false);
-		proc_thread->start();
 	}
 }
 

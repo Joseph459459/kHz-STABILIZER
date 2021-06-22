@@ -23,7 +23,9 @@
 #define section_width 1000
 #define tf_window 3 * section_width + 1
 
+#include <math.h>
 
+typedef unsigned short uint16_t;
 
 template <typename T>
 inline void tf_input_(T* tf_input_arr, uint16_t yDACmax, float* freqs) {
@@ -37,7 +39,7 @@ inline void tf_input_(T* tf_input_arr, uint16_t yDACmax, float* freqs) {
 
 	for (i = 0; i < section_width; ++i) {
 
-		tf_input_arr[i + idx] = round((double)yDACmax / 2 + ((double) yDACmax / 4 + (double) yDACmax / 4 * i / 1000) * sinf(2 * PI * freqs[0] / 1000 * i));
+        tf_input_arr[i + idx] = round((double)yDACmax / 2 + ((double) yDACmax / 4 + (double) yDACmax / 4 * i / 1000) * sinf(2 * PI * freqs[0] / 1000 * i));
 	}
 	idx += section_width;
 	

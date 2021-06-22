@@ -491,8 +491,8 @@ QRadioButton::indicator:unchecked {
            <string/>
           </property>
           <property name="icon">
-           <iconset resource="khz_STABILIZER.qrc">
-            <normaloff>:/resources/63468.svg</normaloff>:/resources/63468.svg</iconset>
+           <iconset resource="khz_Stabilizer.qrc">
+            <normaloff>:/icons/63468.svg</normaloff>:/icons/63468.svg</iconset>
           </property>
           <property name="checked">
            <bool>false</bool>
@@ -532,8 +532,8 @@ QRadioButton::indicator:unchecked {
            <string/>
           </property>
           <property name="icon">
-           <iconset resource="khz_STABILIZER.qrc">
-            <normaloff>:/resources/50849.svg</normaloff>:/resources/50849.svg</iconset>
+           <iconset resource="khz_Stabilizer.qrc">
+            <normaloff>:/icons/50849.svg</normaloff>:/icons/50849.svg</iconset>
           </property>
           <property name="checkable">
            <bool>true</bool>
@@ -559,7 +559,7 @@ QRadioButton::indicator:unchecked {
          <enum>QTabWidget::Triangular</enum>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="plotTab">
          <attribute name="title">
@@ -793,17 +793,17 @@ QRadioButton::indicator:unchecked {
   <customwidget>
    <class>QCustomPlot</class>
    <extends>QWidget</extends>
-   <header>qcustomplot.h</header>
+   <header location="global">qcustomplot.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>Console</class>
    <extends>QPlainTextEdit</extends>
-   <header>console.h</header>
+   <header location="global">console.h</header>
   </customwidget>
  </customwidgets>
  <resources>
-  <include location="khz_STABILIZER.qrc"/>
+  <include location="khz_Stabilizer.qrc"/>
  </resources>
  <connections/>
  <buttongroups>

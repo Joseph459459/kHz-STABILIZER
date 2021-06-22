@@ -64,14 +64,14 @@ border-style: inset;
     <string/>
    </property>
    <property name="icon">
-    <iconset resource="khz_STABILIZER.qrc">
-     <normaloff>:/resources/refresh.svg</normaloff>:/resources/refresh.svg</iconset>
+    <iconset resource="khz_Stabilizer.qrc">
+     <normaloff>:/icons/refresh.svg</normaloff>:/icons/refresh.svg</iconset>
    </property>
   </widget>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>
-  <include location="khz_STABILIZER.qrc"/>
+  <include location="khz_Stabilizer.qrc"/>
  </resources>
  <connections/>
 </ui>

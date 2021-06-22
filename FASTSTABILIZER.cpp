@@ -8,6 +8,7 @@ time_point<std::chrono::steady_clock> t2;
 #include <iostream>
 #include <fstream>
 
+
 FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, QWidget* parent)
 	: QMainWindow(parent), proc_thread(fb_info, this), x_filters(6), y_filters(6),animateTimer(this), FC(nullptr), MC(nullptr)
 {

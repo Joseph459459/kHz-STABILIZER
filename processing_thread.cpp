@@ -17,8 +17,6 @@ using namespace arma;
 #define STABILIZE_DEBUG
 #undef STABILIZE_DEBUG
 
-#define LOOP_TIME_DEBUG
-#undef LOOP_TIME_DEBUG
 
 template <typename T>
 double preciserms(T& s) {
@@ -285,40 +283,7 @@ void processing_thread::test_loop_times() {
 
 	QSerialPort teensy;
 
-	QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
-
-	for (QSerialPortInfo port : ports) {
-
-		port.vendorIdentifier();
-
-		if (port.vendorIdentifier() == 5824) {
-			teensy.setPortName(port.portName());
-
-		}
-	}
-
-	if (!teensy.open(QIODevice::ReadWrite)) {
-		emit write_to_log(QString("USB port not able to open."));
-		return;
-	};
-
-	bool p = true;
-
-	p = teensy.setBaudRate(QSerialPort::Baud115200);
-	p = teensy.setDataBits(QSerialPort::Data8);
-	p = teensy.setParity(QSerialPort::NoParity);
-	p = teensy.setStopBits(QSerialPort::OneStop);
-	p = teensy.setFlowControl(QSerialPort::NoFlowControl);
-
-	if (!p) {
-		emit write_to_log(QString("Error configuring USB connection."));
-		return;
-	}
-	else {
-		emit write_to_log(QString("Port opened and configured"));
-	}
-
-#pragma endregion
+    open_port(teensy);
 
 	adjust_framerate();
 
@@ -352,7 +317,7 @@ void processing_thread::test_loop_times() {
 
 	for (int i = 0; i < 5000; ++i) {
 		
-		if (fb_cam.RetrieveResult(1000, ptr, Pylon::TimeoutHandling_Return)) {
+        if (fb_cam.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
 			auto start = high_resolution_clock::now();
 
 			centroid(ptr, height, width, new_centroid, threshold);
@@ -379,11 +344,12 @@ void processing_thread::test_loop_times() {
 
 	time_t start = time(0);
 	std::string date_time = ctime(&start);
-	std::string log_file("loop tests/loop test ");
+    std::string log_file("loop_tests/loop_test_");
 	log_file.append(date_time);
 	log_file.erase(log_file.end() - 1);
 	log_file.append(".txt");
 	std::replace(log_file.begin(), log_file.end(), ':', '-');
+    std::replace(log_file.begin(), log_file.end(), ' ', '_');
 
 	std::ofstream loop_tests(log_file.c_str(), std::ofstream::out);
 
@@ -402,46 +368,9 @@ void processing_thread::test_loop_times() {
 
 void processing_thread::stabilize() {
 
-#pragma region OPEN_PORT
-
 	QSerialPort teensy;
 
-	QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
-
-	for (QSerialPortInfo port : ports) {
-
-		port.vendorIdentifier();
-
-		if (port.vendorIdentifier() == 5824) {
-			teensy.setPortName(port.portName());
-
-		}
-	}
-
-	if (!teensy.open(QIODevice::ReadWrite)) {
-		emit write_to_log(QString("USB port not able to open."));
-		return;
-	};
-
-	bool p = true;
-
-	p = teensy.setBaudRate(QSerialPort::Baud115200);
-	p = teensy.setDataBits(QSerialPort::Data8);
-	p = teensy.setParity(QSerialPort::NoParity);
-	p = teensy.setStopBits(QSerialPort::OneStop);
-	p = teensy.setFlowControl(QSerialPort::NoFlowControl);
-
-	if (!p) {
-		emit write_to_log(QString("Error configuring USB connection."));
-		return;
-	}
-	else {
-		emit write_to_log(QString("Port opened and configured"));
-	}
-
-
-
-#pragma endregion
+    open_port(teensy);
 
 	adjust_framerate();
 	
@@ -554,8 +483,6 @@ void processing_thread::stabilize() {
 }
 
 void processing_thread::receive_cmd_line_data(QStringList cmd_str_list) {
-
-	qDebug() << QThread::currentThreadId();
 
 	bool numcheck = false;
 

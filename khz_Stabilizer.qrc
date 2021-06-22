@@ -1,7 +1,7 @@
 <RCC>
-    <qresource prefix="/resources">
+    <qresource prefix="/icons">
         <file>refresh.svg</file>
-        <file>50849.svg</file>
         <file>63468.svg</file>
+        <file>50849.svg</file>
     </qresource>
 </RCC>

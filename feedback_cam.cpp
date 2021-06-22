@@ -98,7 +98,9 @@ tryagain:
 			if (trycount > 7) {
 				updateimagesize(proc_thread->fb_cam.WidthMax(), proc_thread->fb_cam.HeightMax());
 				emit write_to_log("Could not find Centroid. Make sure the sensor is clear and there is a threshold.");
-				goto end;
+                proc_thread->blockSignals(false);
+                proc_thread->start();
+                return;
 			}
 
 			goto tryagain;
@@ -129,9 +131,6 @@ tryagain:
 		else
 			proc_thread->fb_cam.OffsetY.SetValue(yminus);
 
-	end:
-		proc_thread->blockSignals(false);
-		proc_thread->start();
 	}
 }
 
