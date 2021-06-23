@@ -279,8 +279,6 @@ void processing_thread::test_loop_times() {
 
 	emit write_to_log(QString("Beginning Loop Time Test..."));
 
-#pragma region OPEN_PORT
-
 	QSerialPort teensy;
 
     open_port(teensy);
@@ -299,8 +297,6 @@ void processing_thread::test_loop_times() {
 		return;
 	}
 
-	teensy.write(QByteArray(1, TEST_LOOP_TIME));
-	teensy.waitForBytesWritten(100);
 	float new_centroid[2];
 
 	GrabResultPtr_t ptr;
@@ -315,9 +311,12 @@ void processing_thread::test_loop_times() {
 	int i = 0;
 	int missed = 0;
 
+    teensy.write(QByteArray(1, TEST_LOOP_TIME));
+    teensy.waitForBytesWritten(100);
+
 	for (int i = 0; i < 5000; ++i) {
 		
-        if (fb_cam.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
+        if (fb_cam.RetrieveResult(100, ptr, Pylon::TimeoutHandling_Return)) {
 			auto start = high_resolution_clock::now();
 
 			centroid(ptr, height, width, new_centroid, threshold);
@@ -341,6 +340,8 @@ void processing_thread::test_loop_times() {
 
 	receive_large_serial_buffer(teensy, loop_times, 4000);
 	receive_large_serial_buffer(teensy, shots_sent, 4000);
+
+    teensy.close();
 
 	time_t start = time(0);
 	std::string date_time = ctime(&start);
@@ -536,7 +537,7 @@ void processing_thread::stream() {
 
 	adjust_framerate();
 
-	fb_cam.GevSCPSPacketSize.SetValue(1500);
+    fb_cam.GevSCPSPacketSize.SetValue(5500);
 
 	if (monitor_cam_enabled)
 		monitor_cam.GevSCPSPacketSize.SetValue(1500);

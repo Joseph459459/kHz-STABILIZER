@@ -54,13 +54,13 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 LIBS += -llapack -lblas -larmadillo -lgsl -lfftw3f
 
-LIBS += -L$$PWD/../../../opt/pylon/lib/ -lpylonbase
-LIBS += -L$$PWD/../../../opt/pylon/lib/ -lpylonbase-6.2.0
-LIBS += -L$$PWD/../../../opt/pylon/lib/ -lpylon_TL_gige
-LIBS += -L$$PWD/../../../opt/pylon/lib/ -lpylon_TL_gige-6.2.0
-LIBS += -L$$PWD/../../../opt/pylon/lib/ -lpylonc-6.2.0
-LIBS += -L$$PWD/../../../opt/pylon/lib/ -lGenApi_gcc_v3_1_Basler_pylon
-LIBS += -L$$PWD/../../../opt/pylon/lib/ -lGCBase_gcc_v3_1_Basler_pylon
+LIBS += -L/opt/pylon/lib/ -lpylonbase
+LIBS += -L/opt/pylon/lib/ -lpylonbase-6.2.0
+LIBS += -L/opt/pylon/lib/ -lpylon_TL_gige
+LIBS += -L/opt/pylon/lib/ -lpylon_TL_gige-6.2.0
+LIBS += -L/opt/pylon/lib/ -lpylonc-6.2.0
+LIBS += -L/opt/pylon/lib/ -lGenApi_gcc_v3_1_Basler_pylon
+LIBS += -L/opt/pylon/lib/ -lGCBase_gcc_v3_1_Basler_pylon
 
 RESOURCES += \
     khz_Stabilizer.qrc

@@ -133,7 +133,7 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 	FC->show();
 
 	proc_thread.plan = STREAM;
-	proc_thread.start();
+    proc_thread.start(QThread::TimeCriticalPriority);
 
 }
 

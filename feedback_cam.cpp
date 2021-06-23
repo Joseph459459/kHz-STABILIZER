@@ -63,75 +63,76 @@ void feedback_cam::updateimage(GrabResultPtr_t ptr) {
 
 void feedback_cam::on_findCentroidButton_clicked() {
 	
-	proc_thread->blockSignals(true);
-	proc_thread->acquiring = false;
+    proc_thread->blockSignals(true);
+    proc_thread->acquiring = false;
 
-	while (!proc_thread->isFinished()) {
-		QCoreApplication::processEvents();
-	};
+    while (!proc_thread->isFinished()) {
+        QCoreApplication::processEvents();
+    };
 
-	GrabResultPtr_t ptr;
+    GrabResultPtr_t ptr;
 
-	proc_thread->fb_cam.OffsetX.SetValue(0);
-	proc_thread->fb_cam.OffsetY.SetValue(0);
+    proc_thread->fb_cam.OffsetX.SetValue(0);
+    proc_thread->fb_cam.OffsetY.SetValue(0);
 
-	proc_thread->fb_cam.Height.SetValue(proc_thread->fb_cam.Height.GetMax());
-	proc_thread->fb_cam.Width.SetValue(proc_thread->fb_cam.Width.GetMax());
-	int trycount = 0;
-tryagain:
-	if (!proc_thread->fb_cam.GrabOne(300, ptr)) {
-		emit write_to_log(QString("Timeout while searching for centroid."));
+    proc_thread->fb_cam.Height.SetValue(proc_thread->fb_cam.Height.GetMax());
+    proc_thread->fb_cam.Width.SetValue(proc_thread->fb_cam.Width.GetMax());
 
-	}
-	else {
 
-		std::array<double, 6> out = allparams(ptr, ui.thresholdBox->value());
+    for (int trycount = 0; trycount < 7; trycount++){
 
-		int width = round(out[2]/4)*4 + 16;
-		int height = round(out[3]/2)*2 + 16;
+        if (!proc_thread->fb_cam.GrabOne(300, ptr)) {
+            emit write_to_log(QString("Timeout while searching for centroid."));
+        }
+        else {
 
-		if (std::isnan(out[2]) || std::isnan(out[3]) || std::isnan(out[0]) || std::isnan(out[1]) || 
-			width > proc_thread->fb_cam.WidthMax() || out[2] < 2 ||
-			height > proc_thread->fb_cam.HeightMax() || out[3] < 2 )
-		{
-			++trycount;
-			if (trycount > 7) {
-				updateimagesize(proc_thread->fb_cam.WidthMax(), proc_thread->fb_cam.HeightMax());
-				emit write_to_log("Could not find Centroid. Make sure the sensor is clear and there is a threshold.");
+            std::array<double, 6> out = allparams(ptr, ui.thresholdBox->value());
+
+            int width = round(out[2]/4)*4 + 16;
+            int height = round(out[3]/2)*2 + 16;
+
+            if (!std::isnan(out[2]) && !std::isnan(out[3]) && !std::isnan(out[0]) && !std::isnan(out[1]) &&
+                width < proc_thread->fb_cam.WidthMax() && out[2] > 2 &&
+                height < proc_thread->fb_cam.HeightMax() && out[3] > 2 )
+            {
+
+                proc_thread->fb_cam.Height.SetValue(height);
+                proc_thread->fb_cam.Width.SetValue(width);
+
+                updateimagesize(width, height);
+
+                int xplus =  (((int)out[0] + width / 2)/2)*2;
+                int xminus = (((int)out[0] - width / 2)/2)*2;
+                int yplus = (((int)out[1] + height / 2)/2)*2;
+                int yminus = (((int)out[1] - height / 2)/2)*2;
+
+                if (xminus < 0)
+                    proc_thread->fb_cam.OffsetX.SetValue(0);
+                else if (xplus > proc_thread->fb_cam.WidthMax.GetValue())
+                    proc_thread->fb_cam.OffsetX.SetValue(proc_thread->fb_cam.WidthMax.GetValue() - width);
+                else
+                    proc_thread->fb_cam.OffsetX.SetValue(xminus);
+
+                if (yminus < 0)
+                    proc_thread->fb_cam.OffsetY.SetValue(0);
+                else if (yplus > proc_thread->fb_cam.HeightMax.GetValue())
+                    proc_thread->fb_cam.OffsetY.SetValue(proc_thread->fb_cam.HeightMax.GetValue() - height);
+                else
+                    proc_thread->fb_cam.OffsetY.SetValue(yminus);
+
                 proc_thread->blockSignals(false);
                 proc_thread->start();
                 return;
-			}
+            }
 
-			goto tryagain;
+        }
+    }
 
-		}
 
-		proc_thread->fb_cam.Height.SetValue(height);
-		proc_thread->fb_cam.Width.SetValue(width);
-
-		updateimagesize(width, height);
-
-		int xplus =  (((int)out[0] + width / 2)/2)*2;
-		int xminus = (((int)out[0] - width / 2)/2)*2;
-		int yplus = (((int)out[1] + height / 2)/2)*2;
-		int yminus = (((int)out[1] - height / 2)/2)*2;
-
-		if (xminus < 0)
-			proc_thread->fb_cam.OffsetX.SetValue(0);
-		else if (xplus > proc_thread->fb_cam.WidthMax.GetValue())
-			proc_thread->fb_cam.OffsetX.SetValue(proc_thread->fb_cam.WidthMax.GetValue() - width);
-		else
-			proc_thread->fb_cam.OffsetX.SetValue(xminus);
-
-		if (yminus < 0)
-			proc_thread->fb_cam.OffsetY.SetValue(0);
-		else if (yplus > proc_thread->fb_cam.HeightMax.GetValue())
-			proc_thread->fb_cam.OffsetY.SetValue(proc_thread->fb_cam.HeightMax.GetValue() - height);
-		else
-			proc_thread->fb_cam.OffsetY.SetValue(yminus);
-
-	}
+    updateimagesize(proc_thread->fb_cam.WidthMax(), proc_thread->fb_cam.HeightMax());
+    emit write_to_log("Could not find Centroid. Make sure the sensor is clear and there is a threshold.");
+    proc_thread->blockSignals(false);
+    proc_thread->start();
 }
 
 void feedback_cam::updateimagesize(int width, int height) {
@@ -278,8 +279,9 @@ void feedback_cam::on_loopTimeButton_clicked() {
 
 	safe_thread_close();
 	this->setDisabled(true);
-	proc_thread->plan = TEST_LOOP_TIME;
-	proc_thread->start(QThread::TimeCriticalPriority);
+    //proc_thread->plan = TEST_LOOP_TIME;
+    //proc_thread->start(QThread::TimeCriticalPriority);
+    proc_thread->test_loop_times();
 }
 
 void feedback_cam::on_transferFunctionButton_clicked() {

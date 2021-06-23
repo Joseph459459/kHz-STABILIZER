@@ -76,64 +76,62 @@ void monitor_cam::on_findCentroidButton_clicked() {
 	proc_thread->monitor_cam.Height.SetValue(proc_thread->monitor_cam.Height.GetMax());
 	proc_thread->monitor_cam.Width.SetValue(proc_thread->monitor_cam.Width.GetMax());
 
-	int trycount = 0;
 
+    for (int trycount = 0; trycount < 7; trycount++){
 
-tryagain:
-	
-	if (!proc_thread->monitor_cam.GrabOne(300, ptr)) {
-		emit write_to_log(QString("Timeout while searching for centroid."));
+        if (!proc_thread->monitor_cam.GrabOne(300, ptr)) {
+            emit write_to_log(QString("Timeout while searching for centroid."));
+        }
+        else {
 
-	}
-	else {
+            std::array<double, 6> out = allparams(ptr, ui.thresholdBox->value());
 
-		std::array<double, 6> out = allparams(ptr, ui.thresholdBox->value());
+            int width = round(out[2]/4)*4 + 16;
+            int height = round(out[3]/2)*2 + 16;
 
-		int width = round(out[2]/4)*4 + 16;
-		int height = round(out[3]/2)*2 + 16;
+            if (!std::isnan(out[2]) && !std::isnan(out[3]) && !std::isnan(out[0]) && !std::isnan(out[1]) &&
+                width < proc_thread->monitor_cam.WidthMax() && out[2] > 2 &&
+                height < proc_thread->monitor_cam.HeightMax() && out[3] > 2 )
+            {
 
-		if (std::isnan(out[2]) || std::isnan(out[3]) || std::isnan(out[0]) || std::isnan(out[1]) || 
-			width > proc_thread->monitor_cam.WidthMax() || out[2] < 2 ||
-			height > proc_thread->monitor_cam.HeightMax() || out[3] < 2 )
-		{
-			++trycount;
-			if (trycount > 7) {
-				updateimagesize(proc_thread->monitor_cam.WidthMax(), proc_thread->monitor_cam.HeightMax());
-				emit write_to_log("Could not find Centroid. Make sure the sensor is clear and there is a threshold.");
+                proc_thread->monitor_cam.Height.SetValue(height);
+                proc_thread->monitor_cam.Width.SetValue(width);
+
+                updateimagesize(width, height);
+
+                int xplus =  (((int)out[0] + width / 2)/2)*2;
+                int xminus = (((int)out[0] - width / 2)/2)*2;
+                int yplus = (((int)out[1] + height / 2)/2)*2;
+                int yminus = (((int)out[1] - height / 2)/2)*2;
+
+                if (xminus < 0)
+                    proc_thread->monitor_cam.OffsetX.SetValue(0);
+                else if (xplus > proc_thread->monitor_cam.WidthMax.GetValue())
+                    proc_thread->monitor_cam.OffsetX.SetValue(proc_thread->monitor_cam.WidthMax.GetValue() - width);
+                else
+                    proc_thread->monitor_cam.OffsetX.SetValue(xminus);
+
+                if (yminus < 0)
+                    proc_thread->monitor_cam.OffsetY.SetValue(0);
+                else if (yplus > proc_thread->monitor_cam.HeightMax.GetValue())
+                    proc_thread->monitor_cam.OffsetY.SetValue(proc_thread->monitor_cam.HeightMax.GetValue() - height);
+                else
+                    proc_thread->monitor_cam.OffsetY.SetValue(yminus);
+
                 proc_thread->blockSignals(false);
                 proc_thread->start();
                 return;
             }
 
-			goto tryagain;
+        }
+    }
 
-		}
 
-		proc_thread->monitor_cam.Height.SetValue(height);
-		proc_thread->monitor_cam.Width.SetValue(width);
+    updateimagesize(proc_thread->monitor_cam.WidthMax(), proc_thread->monitor_cam.HeightMax());
+    emit write_to_log("Could not find Centroid. Make sure the sensor is clear and there is a threshold.");
+    proc_thread->blockSignals(false);
+    proc_thread->start();
 
-		updateimagesize(width, height);
-
-		int xplus =  (((int)out[0] + width / 2)/2)*2;
-		int xminus = (((int)out[0] - width / 2)/2)*2;
-		int yplus = (((int)out[1] + height / 2)/2)*2;
-		int yminus = (((int)out[1] - height / 2)/2)*2;
-
-		if (xminus < 0)
-			proc_thread->monitor_cam.OffsetX.SetValue(0);
-		else if (xplus > proc_thread->monitor_cam.WidthMax.GetValue())
-			proc_thread->monitor_cam.OffsetX.SetValue(proc_thread->monitor_cam.WidthMax.GetValue() - width);
-		else
-			proc_thread->monitor_cam.OffsetX.SetValue(xminus);
-
-		if (yminus < 0)
-			proc_thread->monitor_cam.OffsetY.SetValue(0);
-		else if (yplus > proc_thread->monitor_cam.HeightMax.GetValue())
-			proc_thread->monitor_cam.OffsetY.SetValue(proc_thread->monitor_cam.HeightMax.GetValue() - height);
-		else
-			proc_thread->monitor_cam.OffsetY.SetValue(yminus);
-
-	}
 }
 
 void monitor_cam::updateimagesize(int width, int height) {

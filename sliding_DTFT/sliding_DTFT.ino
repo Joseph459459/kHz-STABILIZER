@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <ADC.h>
 #include <vector>
-#include "FS_macros.h"
+#include "/home/joseph/kHz-STABILIZER/FS_macros.h"
 
 
 ADC* adc = new ADC();
@@ -351,4 +351,3 @@ inline void init_actuator() {
 	}
 
 }
-

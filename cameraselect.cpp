@@ -4,6 +4,24 @@
 cameraselect::cameraselect(QWidget *parent)
 	: QWidget(parent)
 {
+
+    system("echo Moving program to core 2 of the machine...");
+    system("echo");
+    system("taskset -cp 2 $(pidof kHz_Stabilizer)");
+    system("echo DONE");
+    system("echo Increasing maximum packet size...");
+    system("echo");
+    system("sudo ifconfig enp0s31f6 mtu 8000");
+    system("echo DONE");
+    system("echo Increasing process priorities...");
+    system("echo");
+    system("sudo renice -n -20 -g $(pidof kHz_Stabilizer)");
+    system("echo DONE");
+    system("echo Removing interrupts from core 2...");
+    system("echo");
+    system("irqbalance --foreground --oneshot");
+    system("echo DONE");
+
 	PylonInitialize();
 	ui.setupUi(this);
 }
@@ -12,7 +30,6 @@ cameraselect::~cameraselect()
 {
 
 	PylonTerminate();
-
 
 }
 
