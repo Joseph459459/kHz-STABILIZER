@@ -1,6 +1,6 @@
 #pragma once
 
-#include "FS_macros.h"
+#include "kHz_macros.h"
 #include <vector>
 #include <gsl/gsl_poly.h>
 
@@ -13,7 +13,6 @@ struct complex {
 };
 
 struct axes_cell {
-
 	
 	void set_actuator_constants(std::array<double, 4> fit_params) {
 		A = fit_params[0];

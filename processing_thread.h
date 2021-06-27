@@ -1,10 +1,9 @@
 #pragma once
-#include "cameraselect.h"
-#include "FS_macros.h"
+#include "camera_select.h"
+#include "kHz_macros.h"
 #include <QThread>
-#include <QtSerialPort/qserialport.h>
-#include <QtConcurrent/qtconcurrentmap.h>
-#include <QtSerialPort/qserialportinfo.h>
+#include <QtConcurrent>
+#include <QtSerialPort>
 #include "filt.h"
 #include "fftw3.h"
 #include <QFuture>
@@ -31,7 +30,7 @@ public:
 	Camera_t fb_cam;
 	Camera_t monitor_cam;
 
-	std::atomic<bool> acquiring = false;
+    std::atomic_bool acquiring = false;
 
 	double* p;
 	float fft_outx[_window];
@@ -44,7 +43,7 @@ public:
 	int threshold = 0;
 	uint16_t yDACmax;
 	uint16_t xDACmax;
-	QVector<double> tf_input_arr;
+    QVector<double> system_response_input;
 	std::array<float, 3> drive_freqs;
 
 	std::vector<int> x_N;
@@ -59,7 +58,7 @@ public:
 	float mean_x;
 	float mean_y;
 
-	std::atomic<bool> monitor_cam_enabled = false;
+    std::atomic_bool monitor_cam_enabled = false;
 
 public slots:
 	void stabilize();
@@ -69,7 +68,7 @@ public slots:
 	void find_driving_freqs();
 	void adjust_framerate();
 	void find_actuator_range();
-	void learn_transfer_function();
+	void learn_system_response();
 	void setup_stabilize();
 	void receive_large_serial_buffer(QSerialPort& teensy, std::vector<int>& buffer, int chunk_size);
 	void identify_initial_vals();
@@ -227,7 +226,7 @@ inline std::array<double, 6> allparams(GrabResultPtr_t ptr, const int thresh) {
 	sumy / (double)sum,
 	4 * sqrt(((double)sumxx - sumx * (double)sumx / (double)sum) / ((double)sum)),
 	4 * sqrt(((double)sumyy - sumy * (double)sumy / (double)sum) / ((double)sum)),
-		max_val,
+        (double) max_val,
 		sum / (double) (width * height)
 	};
 

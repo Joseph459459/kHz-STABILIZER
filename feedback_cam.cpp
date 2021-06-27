@@ -47,7 +47,7 @@ void feedback_cam::updateimage(GrabResultPtr_t ptr) {
 	centroid(ptr, height, width, out, ui.thresholdBox->value());
 
 	QImage q = QImage((unsigned char*)ptr->GetBuffer(), width, height, QImage::Format_Grayscale8);
-	
+
 	const int bpl = q.bytesPerLine();
 	const int bplDst = qColored->bytesPerLine();
 	for (int y = 0; y < height; ++y) {
@@ -237,7 +237,7 @@ void feedback_cam::on_noiseSpectrumButton_clicked() {
 	progressbox->show();
 	progressbox->raise();
 
-	ui.transferFunctionButton->setEnabled(true);
+    ui.systemResponseButton->setEnabled(true);
 
 	proc_thread->plan = SPECTRUM;
 	this->setDisabled(true);
@@ -284,7 +284,7 @@ void feedback_cam::on_loopTimeButton_clicked() {
     proc_thread->test_loop_times();
 }
 
-void feedback_cam::on_transferFunctionButton_clicked() {
+void feedback_cam::on_systemResponseButton_clicked() {
 
 	safe_thread_close();
 	
@@ -311,13 +311,11 @@ void feedback_cam::on_downButton_clicked() {
 void feedback_cam::on_rightButton_clicked() {
 	if (proc_thread->fb_cam.OffsetX() + proc_thread->fb_cam.Width() + 4 < proc_thread->fb_cam.WidthMax())
 		proc_thread->fb_cam.OffsetX.SetValue(proc_thread->fb_cam.OffsetX() + 4);
-
 }
 
 void feedback_cam::on_leftButton_clicked() {
 	if (proc_thread->fb_cam.OffsetX() - 4 > 0)
 		proc_thread->fb_cam.OffsetX.SetValue(proc_thread->fb_cam.OffsetX() - 4);
-
 }
 
 void feedback_cam::on_triggerButton_toggled(bool j) {

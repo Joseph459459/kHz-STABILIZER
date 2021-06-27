@@ -1,12 +1,14 @@
-#include "cameraselect.h"
+#include "camera_select.h"
 #include <QtWidgets/QApplication>
-#include "FS_macros.h"
+#include "kHz_macros.h"
 #include <QDebug>
+#include <pylon/PylonIncludes.h>
 
 int main(int argc, char *argv[])
 {
+    PylonInitialize();
 	QApplication a(argc, argv);
-	cameraselect w;
+	camera_select w;
 	w.show();
 
 	return a.exec();

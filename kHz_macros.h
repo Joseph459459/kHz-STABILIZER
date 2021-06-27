@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <stdio.h>
 
 #define _window 5000
@@ -28,7 +28,7 @@
 typedef unsigned short uint16_t;
 
 template <typename T>
-inline void tf_input_(T* tf_input_arr, uint16_t yDACmax, float* freqs) {
+inline void generate_system_response_input(T* tf_input_arr, uint16_t yDACmax, float* freqs) {
 
 	int idx = 0;
 	int i;

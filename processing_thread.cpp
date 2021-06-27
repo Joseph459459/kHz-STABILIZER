@@ -116,30 +116,20 @@ struct harmonics_filter {
 };
 
 processing_thread::processing_thread(CDeviceInfo fb_info, QObject* parent)
-	: QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(fb_info))
+    : QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(fb_info)),
+      yDACmax(-1),xDACmax(-1), monitor_cam_enabled(false)
 {
-	PylonInitialize();
 
 	drive_freqs.fill(-1);
-	yDACmax = -1, xDACmax = -1;
-
-	monitor_cam_enabled = false;
-
-	fit_params.reserve(2);
 
 }
 
 processing_thread::processing_thread(CDeviceInfo fb_info, CDeviceInfo m_info, QObject* parent)
-	: QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(fb_info)), monitor_cam(CTlFactory::GetInstance().CreateDevice(m_info))
+    : QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(fb_info)), monitor_cam(CTlFactory::GetInstance().CreateDevice(m_info)),
+      yDACmax(-1),xDACmax(-1), monitor_cam_enabled(true)
 {
-	PylonInitialize();
 
 	drive_freqs.fill(-1);
-	yDACmax = -1, xDACmax = -1;
-
-	monitor_cam_enabled = true;
-
-	fit_params.reserve(2);
 
 }
 
@@ -263,16 +253,20 @@ void processing_thread::receive_large_serial_buffer(QSerialPort &teensy, std::ve
 		teensy.waitForBytesWritten(10);
 
 		if (teensy.waitForReadyRead(1000)) {
-			int received_bytes = teensy.read((char*)curr_pos, chunk_size);
-			if (received_bytes != chunk_size) {
-				emit write_to_log("USB Synchronization Error: Unable to Read");
-				return;
-			}
-			curr_pos += chunk_size / sizeof(int);
-			tot_bytes_read += received_bytes;
-		}
-	}
 
+            int bytes_received = 0;
+
+            while (bytes_received != chunk_size){
+
+                bytes_received = teensy.read((char*)curr_pos, chunk_size);
+
+                curr_pos += bytes_received / sizeof(int);
+
+                tot_bytes_read += bytes_received;
+
+            }
+        }
+    }
 }
 
 void processing_thread::test_loop_times() {
@@ -338,8 +332,8 @@ void processing_thread::test_loop_times() {
 	std::vector<int> loop_times(5000);
 	std::vector<int> shots_sent(5000);
 
-	receive_large_serial_buffer(teensy, loop_times, 4000);
-	receive_large_serial_buffer(teensy, shots_sent, 4000);
+    receive_large_serial_buffer(teensy, loop_times, 128);
+    receive_large_serial_buffer(teensy, shots_sent, 128);
 
     teensy.close();
 
@@ -801,7 +795,6 @@ void processing_thread::open_port(QSerialPort& teensy) {
 		emit write_to_log(QString("Port opened and configured"));
 	}
 
-
 }
 
 void processing_thread::find_actuator_range() {
@@ -810,13 +803,9 @@ void processing_thread::find_actuator_range() {
 
 	emit write_to_log(QString("Finding Actuator Range..."));
 
-#pragma region OPEN_PORT
-
 	QSerialPort teensy;
 
 	open_port(teensy);
-
-#pragma endregion
 
 	GrabResultPtr_t ptr;
 
@@ -930,9 +919,9 @@ void processing_thread::find_actuator_range() {
 	emit finished_analysis();
 }
 
-void processing_thread::learn_transfer_function() {
+void processing_thread::learn_system_response() {
 
-	emit write_to_log(QString("Finding Pixel/DAC Transfer Function..."));
+    emit write_to_log(QString("Finding Pixel/DAC output system response..."));
 
 	adjust_framerate();
 
@@ -944,50 +933,13 @@ void processing_thread::learn_transfer_function() {
 		centroidx_d.resize(tf_window);
 		centroidy_d.resize(tf_window);
 
-#pragma region OPEN_PORT
-
 		QSerialPort teensy;
 
-		QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
+        open_port(teensy);
 
-		for (QSerialPortInfo port : ports) {
+        system_response_input.resize(tf_window);
 
-			port.vendorIdentifier();
-
-			if (port.vendorIdentifier() == 5824) {
-				teensy.setPortName(port.portName());
-
-			}
-		}
-
-		if (!teensy.open(QIODevice::ReadWrite)) {
-			emit write_to_log(QString("USB port not able to open."));
-			return;
-		};
-
-		bool j = true;
-
-		j = teensy.setBaudRate(QSerialPort::Baud115200);
-		j = teensy.setDataBits(QSerialPort::Data8);
-		j = teensy.setParity(QSerialPort::NoParity);
-		j = teensy.setStopBits(QSerialPort::OneStop);
-		j = teensy.setFlowControl(QSerialPort::NoFlowControl);
-
-		if (!j) {
-			emit write_to_log(QString("Error configuring USB connection."));
-			return;
-		}
-		else {
-			emit write_to_log(QString("Port opened and configured"));
-		}
-
-
-
-#pragma endregion
-
-		tf_input_arr.resize(tf_window);
-
-		tf_input_(tf_input_arr.data(), yDACmax, drive_freqs.data());
+        generate_system_response_input(system_response_input.data(), yDACmax, drive_freqs.data());
 
 		GrabResultPtr_t ptr;
 
@@ -1050,7 +1002,7 @@ void processing_thread::learn_transfer_function() {
 
 		centroidx_d.pop_front();
 		centroidy_d.pop_front();
-		tf_input_arr.pop_back();
+        system_response_input.pop_back();
 
 		emit updateprogress(tf_window);
 
@@ -1088,7 +1040,7 @@ void processing_thread::learn_transfer_function() {
 			for (int freq_idx = 0; freq_idx < 3; ++freq_idx) {
 
 				// EXTRACT SECTION
-				std::vector<double> tf_input_section((double*)tf_input_arr.data() + freq_idx * section_width, (double*)tf_input_arr.data() + (freq_idx + 1) * section_width);
+                std::vector<double> tf_input_section((double*)system_response_input.data() + freq_idx * section_width, (double*)system_response_input.data() + (freq_idx + 1) * section_width);
 				std::vector<double> centroid_section((double*)centroid->data() + freq_idx * section_width, (double*)centroid->data() + (freq_idx + 1) * section_width);
 
 				//-----------------------------------------------------
@@ -1125,20 +1077,21 @@ void processing_thread::learn_transfer_function() {
 
 			}
 
-			mat lin_sol = solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows)), centroid_full);
+            mat A_B = solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows)), centroid_full);
 
-			vec errors = centroid_full - (lin_sol(0) * DAC_full + lin_sol(1));
+            vec errors = centroid_full - (A_B(0) * DAC_full + A_B(1));
 
-			mat correction = solve(join_rows(dDAC_full, ddDAC_full), errors);
+            mat C_D = solve(join_rows(dDAC_full, ddDAC_full), errors);
 
-			std::array<double, 4> fit = { lin_sol(0), lin_sol(1), correction(0), correction(1) };
+            std::array<double, 4> fit = { A_B(0), A_B(1), C_D(0), C_D(1) };
 
 			fit_params.push_back(fit);
 
-			model_RMSE.push_back(sqrt(arma::sum(square(errors - (correction(0) * dDAC_full + correction(1) * (ddDAC_full)))) / ddDAC_full.n_rows));
+            model_RMSE.push_back(sqrt(arma::sum(square(errors - (C_D(0) * dDAC_full + C_D(1) * (ddDAC_full)))) / ddDAC_full.n_rows));
 
-			vec simulated = centroid_full + errors - (correction(0) * dDAC_full + correction(1) * (ddDAC_full));
+            vec simulated = centroid_full + errors - (C_D(0) * dDAC_full + C_D(1) * (ddDAC_full));
 
+            //QCustomPlot wants QVectors
 			to_plot.push_back(QVector<double>::fromStdVector(arma::conv_to<std::vector<double>>::from(DAC_full)));
 			to_plot.push_back(QVector<double>::fromStdVector(arma::conv_to<std::vector<double>>::from(centroid_full)));
 			to_plot.push_back(QVector<double>::fromStdVector(arma::conv_to<std::vector<double>>::from(simulated)));
@@ -1244,7 +1197,7 @@ void processing_thread::run() {
 		find_actuator_range();
 		break;
 	case LEARN_TF:
-		learn_transfer_function();
+        learn_system_response();
 		break;
 	case CORRELATE:
 		correlate_cameras();

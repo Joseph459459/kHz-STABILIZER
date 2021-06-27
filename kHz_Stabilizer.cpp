@@ -1,4 +1,4 @@
-#include "FASTSTABILIZER.h"
+#include "kHz_Stabilizer.h"
 
 using namespace std::chrono;
 #define T_START t1 = high_resolution_clock::now();
@@ -9,33 +9,33 @@ time_point<std::chrono::steady_clock> t2;
 #include <fstream>
 
 
-FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, QWidget* parent)
+kHz_Stabilizer::kHz_Stabilizer(CDeviceInfo fb_info, QWidget* parent)
 	: QMainWindow(parent), proc_thread(fb_info, this), x_filters(6), y_filters(6),animateTimer(this), FC(nullptr), MC(nullptr)
 {
 	ui.setupUi(this);
 
-	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::update_log);
-	connect(this, &FASTSTABILIZER::send_cmd_line_data, &proc_thread, &processing_thread::receive_cmd_line_data);
+    connect(&proc_thread, &processing_thread::write_to_log, this, &kHz_Stabilizer::update_log);
+    connect(this, &kHz_Stabilizer::send_cmd_line_data, &proc_thread, &processing_thread::receive_cmd_line_data);
 
 	create_fft_plots();
 	create_tf_plots();
 		
 }
 
-FASTSTABILIZER::FASTSTABILIZER(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget* parent)
+kHz_Stabilizer::kHz_Stabilizer(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget* parent)
 	: QMainWindow(parent), proc_thread(fb_info, m_info, this), x_filters(6), y_filters(6), animateTimer(this), FC(nullptr), MC(nullptr)
 {
 	ui.setupUi(this);
 
-	connect(&proc_thread, &processing_thread::write_to_log, this, &FASTSTABILIZER::update_log);
-	connect(this, &FASTSTABILIZER::send_cmd_line_data, &proc_thread, &processing_thread::receive_cmd_line_data);
+    connect(&proc_thread, &processing_thread::write_to_log, this, &kHz_Stabilizer::update_log);
+    connect(this, &kHz_Stabilizer::send_cmd_line_data, &proc_thread, &processing_thread::receive_cmd_line_data);
 
 	create_fft_plots();
 	create_tf_plots();
 
 }
 
-FASTSTABILIZER::~FASTSTABILIZER() {
+kHz_Stabilizer::~kHz_Stabilizer() {
 	proc_thread.fb_cam.DestroyDevice();
 	
 	if (proc_thread.monitor_cam_enabled)
@@ -44,7 +44,7 @@ FASTSTABILIZER::~FASTSTABILIZER() {
 	PylonTerminate();
 }
 
-void FASTSTABILIZER::on_stopButton_clicked() {
+void kHz_Stabilizer::on_stopButton_clicked() {
 
 	proc_thread.acquiring = false;
 
@@ -58,7 +58,7 @@ void FASTSTABILIZER::on_stopButton_clicked() {
 	ui.stabilizeButton->setChecked(false);
 }
 
-void FASTSTABILIZER::on_stabilizeButton_clicked() {
+void kHz_Stabilizer::on_stabilizeButton_clicked() {
 	
 	bool no_filters = true;
 	
@@ -89,7 +89,7 @@ void FASTSTABILIZER::on_stabilizeButton_clicked() {
 	proc_thread.start(QThread::TimeCriticalPriority);
 }
 
-void FASTSTABILIZER::update_log(QString q) {
+void kHz_Stabilizer::update_log(QString q) {
 
 	ui.console->appendPlainText(q);
 	ui.console->appendPlainText(QString(" "));
@@ -97,7 +97,7 @@ void FASTSTABILIZER::update_log(QString q) {
 
 }
 
-void FASTSTABILIZER::on_learnButton_clicked() {
+void kHz_Stabilizer::on_learnButton_clicked() {
 
 	qRegisterMetaType<GrabResultPtr_t>("GrabResultPtr_t");
 	qRegisterMetaType<std::array<double, 3>>("std::array<double,3>");
@@ -109,21 +109,21 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 		proc_thread.monitor_cam.Open();
 
 	FC = new feedback_cam(&proc_thread, this);
-	connect(FC, &feedback_cam::write_to_log, this, &FASTSTABILIZER::update_log);
+    connect(FC, &feedback_cam::write_to_log, this, &kHz_Stabilizer::update_log);
 
 	qRegisterMetaType<QVector<QVector<double>>>("QVector<QVector<double>>");
 	connect(&proc_thread, &processing_thread::send_feedback_ptr, FC, &feedback_cam::updateimage);
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, FC, &feedback_cam::updateimage,Qt::BlockingQueuedConnection);
 
-	connect(&proc_thread, &processing_thread::update_fft_plot, this, &FASTSTABILIZER::update_fft_plot);
-	connect(&proc_thread, &processing_thread::update_tf_plot, this, &FASTSTABILIZER::update_tf_plot);
+    connect(&proc_thread, &processing_thread::update_fft_plot, this, &kHz_Stabilizer::update_fft_plot);
+    connect(&proc_thread, &processing_thread::update_tf_plot, this, &kHz_Stabilizer::update_tf_plot);
 
 	FC->setAttribute(Qt::WA_DeleteOnClose);
 
 	if (proc_thread.monitor_cam_enabled) {
 
 		MC = new monitor_cam(&proc_thread, this);
-		connect(MC, &monitor_cam::write_to_log, this, &FASTSTABILIZER::update_log);
+        connect(MC, &monitor_cam::write_to_log, this, &kHz_Stabilizer::update_log);
 		connect(&proc_thread, &processing_thread::send_monitor_ptr, MC, &monitor_cam::updateimage);
 		connect(&proc_thread, &processing_thread::send_imgptr_blocking, MC, &monitor_cam::updateimage, Qt::BlockingQueuedConnection);
 		connect(FC, &QDockWidget::destroyed, MC, &QDockWidget::deleteLater);
@@ -137,7 +137,7 @@ void FASTSTABILIZER::on_learnButton_clicked() {
 
 }
 
-void FASTSTABILIZER::create_tf_plots() {
+void kHz_Stabilizer::create_tf_plots() {
 
 	ui.tf_plot->plotLayout()->clear();
 	ui.tf_plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
@@ -186,7 +186,7 @@ void FASTSTABILIZER::create_tf_plots() {
 
 }
 
-void FASTSTABILIZER::create_fft_plots() {
+void kHz_Stabilizer::create_fft_plots() {
 
 	ui.plot->plotLayout()->clear();
 	QCPAxisRect* fftaxes_x = new QCPAxisRect(ui.plot, false);
@@ -223,9 +223,9 @@ void FASTSTABILIZER::create_fft_plots() {
 	ui.plot->graph(1)->setSelectable(QCP::stSingleData);
 
 	connect(ui.plot->graph(0), qOverload<const QCPDataSelection&>(&QCPAbstractPlottable::selectionChanged),
-		this, &FASTSTABILIZER::new_filter);
+        this, &kHz_Stabilizer::new_filter);
 	connect(ui.plot->graph(1), qOverload<const QCPDataSelection&>(&QCPAbstractPlottable::selectionChanged),
-		this, &FASTSTABILIZER::new_filter);
+        this, &kHz_Stabilizer::new_filter);
 
 	ui.plot->replot();
 
@@ -243,7 +243,7 @@ void FASTSTABILIZER::create_fft_plots() {
 		x_filters[i].ptr->selectionDecorator()->setBrush(QBrush(QColor(200, 130, 60, 77)));
 		x_filters[i].ptr->setName(QString::number(i + 2));
 		x_filters[i].ptr->data()->clear();
-		connect(x_filters[i].ptr, qOverload<bool>(&QCPGraph::selectionChanged), this, &FASTSTABILIZER::animate_plot);
+        connect(x_filters[i].ptr, qOverload<bool>(&QCPGraph::selectionChanged), this, &kHz_Stabilizer::animate_plot);
 	}
 
 	for (int i = 0; i < 6; ++i) {
@@ -254,7 +254,7 @@ void FASTSTABILIZER::create_fft_plots() {
 		y_filters[i].ptr->selectionDecorator()->setBrush(QBrush(QColor(200, 130, 60, 77)));
 		y_filters[i].ptr->setName(QString::number(i + 8));
 		y_filters[i].ptr->data()->clear();
-		connect(y_filters[i].ptr, qOverload<bool>(&QCPGraph::selectionChanged), this, &FASTSTABILIZER::animate_plot);
+        connect(y_filters[i].ptr, qOverload<bool>(&QCPGraph::selectionChanged), this, &kHz_Stabilizer::animate_plot);
 
 	}
 
@@ -264,14 +264,14 @@ void FASTSTABILIZER::create_fft_plots() {
 	ui.plot->axisRect(1)->setRangeDragAxes(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
 	ui.plot->axisRect(1)->setRangeZoomAxes(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
 
-	connect(ui.plot, &QCustomPlot::plottableDoubleClick, this, &FASTSTABILIZER::remove_filter);
+    connect(ui.plot, &QCustomPlot::plottableDoubleClick, this, &kHz_Stabilizer::remove_filter);
 
 	connect(&proc_thread, &QThread::started, &animateTimer, &QTimer::stop);
 
 
 }
 
-void FASTSTABILIZER::update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y) {
+void kHz_Stabilizer::update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y) {
 
 	ui.plot->graph(0)->setData(freqs, proc_thread.fftx);
 	ui.plot->axisRect(0)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
@@ -287,7 +287,7 @@ void FASTSTABILIZER::update_fft_plot(float rms_x, float rms_y, float peak_to_pea
 	update_log(QString("peak to peak y: ") + QString::number(peak_to_peak_y,'f',2));
 }
 
-void FASTSTABILIZER::update_tf_plot(QVector<QVector<double>> to_plot) {
+void kHz_Stabilizer::update_tf_plot(QVector<QVector<double>> to_plot) {
 
 	hysteresis_curves[1]->setData(to_plot[0],
 		to_plot[1]);
@@ -307,7 +307,7 @@ void FASTSTABILIZER::update_tf_plot(QVector<QVector<double>> to_plot) {
 
 }
 
-void FASTSTABILIZER::on_horizontalZoomButton_toggled(bool j) {
+void kHz_Stabilizer::on_horizontalZoomButton_toggled(bool j) {
 
 	if (j) {
 			ui.plot->axisRect(0)->setRangeDragAxes(ui.plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
@@ -347,7 +347,7 @@ void FASTSTABILIZER::on_horizontalZoomButton_toggled(bool j) {
 	
 }
 
-void FASTSTABILIZER::new_filter(const QCPDataSelection& p) {
+void kHz_Stabilizer::new_filter(const QCPDataSelection& p) {
 	
 	if (ui.plot->graph(0)->selected()) {
 		int i;
@@ -390,7 +390,7 @@ void FASTSTABILIZER::new_filter(const QCPDataSelection& p) {
 
 }
 
-void FASTSTABILIZER::keyPressEvent(QKeyEvent* e)
+void kHz_Stabilizer::keyPressEvent(QKeyEvent* e)
 {
 	if (e->key() == Qt::Key_Up || e->key() == Qt::Key_Down || e->key() == Qt::Key_Left || e->key() == Qt::Key_Right) {
 
@@ -447,7 +447,7 @@ void FASTSTABILIZER::keyPressEvent(QKeyEvent* e)
 
 }
 
-void FASTSTABILIZER::remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* e) {
+void kHz_Stabilizer::remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* e) {
 
 	animateTimer.disconnect();
 	animateTimer.stop();
@@ -464,7 +464,7 @@ void FASTSTABILIZER::remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* 
 	}
 }
 
-void FASTSTABILIZER::animate_plot(bool j) {
+void kHz_Stabilizer::animate_plot(bool j) {
 
 	QCPGraph* graphptr = (QCPGraph*)sender();
 
@@ -489,7 +489,7 @@ void FASTSTABILIZER::animate_plot(bool j) {
 	}
 }
 
-void FASTSTABILIZER::animate(int i) {
+void kHz_Stabilizer::animate(int i) {
 
 	if (i < 8) {
 		ui.plot->graph(i)->setData(freqs, filtersim(freqs, x_filters[i - 2].graphdatapos, x_filters[i - 2].N, phi += 0.3));
@@ -505,14 +505,14 @@ void FASTSTABILIZER::animate(int i) {
 	}
 }
 
-void FASTSTABILIZER::update_freq_label(int N, int graphdatapos) {
+void kHz_Stabilizer::update_freq_label(int N, int graphdatapos) {
 
 	ui.plotLabel->setText("Freq: " + QString::number(graphdatapos / (_window / 2.0) * 500) +
 		" Hz | Window: " + QString::number(N) + " ms ");
 
 }
 
-void FASTSTABILIZER::update_filter_params() {
+void kHz_Stabilizer::update_filter_params() {
 
 	proc_thread.x_tones.clear();
 	proc_thread.x_N.clear();
@@ -541,7 +541,7 @@ void FASTSTABILIZER::update_filter_params() {
 
 }
 
-void FASTSTABILIZER::on_cmdLineBox_returnPressed() {
+void kHz_Stabilizer::on_cmdLineBox_returnPressed() {
 	
 	if (FC == nullptr) {
 		ui.cmdLineBox->clear();

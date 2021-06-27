@@ -20,31 +20,31 @@ DEFINES += QT_DEPRECATED_WARNINGS
 INCLUDEPATH += /opt/pylon/include
 
 SOURCES += \
-    FASTSTABILIZER.cpp \
-    cameraselect.cpp \
+    camera_select.cpp \
     console.cpp \
     feedback_cam.cpp \
     filt.cpp \
+    kHz_Stabilizer.cpp \
     main.cpp \
     monitor_cam.cpp \
     processing_thread.cpp \
     qcustomplot.cpp
 
 HEADERS += \
-    FASTSTABILIZER.h \
-    FS_macros.h \
-    cameraselect.h \
+    camera_select.h \
     console.h \
     feedback_cam.h \
     imageviewer.h \
+    kHz_Stabilizer.h \
+    kHz_macros.h \
     monitor_cam.h \
     processing_thread.h \
     qcustomplot.h
 
 FORMS += \
-    FASTSTABILIZER.ui \
-    cameraselect.ui \
+    camera_select.ui \
     feedback_cam.ui \
+    kHz_Stabilizer.ui \
     monitor_cam.ui
 
 # Default rules for deployment.

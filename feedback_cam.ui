@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>511</width>
-    <height>505</height>
+    <height>598</height>
    </rect>
   </property>
   <property name="styleSheet">
@@ -37,8 +37,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>373</width>
-         <height>463</height>
+         <width>319</width>
+         <height>559</height>
         </rect>
        </property>
        <layout class="QGridLayout" name="gridLayout">
@@ -347,7 +347,7 @@ border-style: inset;
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="transferFunctionButton">
+       <widget class="QPushButton" name="systemResponseButton">
         <property name="enabled">
          <bool>false</bool>
         </property>
@@ -377,8 +377,8 @@ border-style: inset;
 }</string>
         </property>
         <property name="text">
-         <string>Find Transfer 
- Function</string>
+         <string>Learn System 
+ Response</string>
         </property>
        </widget>
       </item>

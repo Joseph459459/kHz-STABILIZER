@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ui_FASTSTABILIZER.h"
+#include "ui_kHz_Stabilizer.h"
 #include "feedback_cam.h"
 #include "monitor_cam.h"
 #include "console.h"
-#include "FS_macros.h"
+#include "kHz_macros.h"
 #include <QtWidgets/QMainWindow>
 #include <QDebug>
 #include <array>
@@ -20,15 +20,15 @@ struct myFilter {
 	int N;
 };
 
-class FASTSTABILIZER : public QMainWindow
+class kHz_Stabilizer : public QMainWindow
 {
 	Q_OBJECT
 
 public:
-	FASTSTABILIZER(CDeviceInfo fb_info, QWidget *parent = Q_NULLPTR);
-	FASTSTABILIZER(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget* parent = Q_NULLPTR);
+    kHz_Stabilizer(CDeviceInfo fb_info, QWidget *parent = Q_NULLPTR);
+    kHz_Stabilizer(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget* parent = Q_NULLPTR);
 
-	~FASTSTABILIZER();
+    ~kHz_Stabilizer();
 	
 	feedback_cam* FC = nullptr;
 	monitor_cam* MC = nullptr;
@@ -69,11 +69,11 @@ public slots:
 	QVector<double> filtersim(QVector<double>& in, int graphpos, int N, float phi);
 
 private:
-	Ui::FASTSTABILIZERClass ui;
+    Ui::kHz_StabilizerClass ui;
 };
 
 
-inline QVector<double> FASTSTABILIZER::filtersim(QVector<double>& in, int graphpos, int N, float phi) {
+inline QVector<double> kHz_Stabilizer::filtersim(QVector<double>& in, int graphpos, int N, float phi) {
 
 	QVector<double> out(in.size());
 

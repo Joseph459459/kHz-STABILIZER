@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>FASTSTABILIZERClass</class>
- <widget class="QMainWindow" name="FASTSTABILIZERClass">
+ <class>kHz_StabilizerClass</class>
+ <widget class="QMainWindow" name="kHz_StabilizerClass">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -793,7 +793,7 @@ QRadioButton::indicator:unchecked {
   <customwidget>
    <class>QCustomPlot</class>
    <extends>QWidget</extends>
-   <header location="global">qcustomplot.h</header>
+   <header>qcustomplot.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>

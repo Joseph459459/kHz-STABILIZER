@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>cameraselect</class>
- <widget class="QWidget" name="cameraselect">
+ <class>camera_selectClass</class>
+ <widget class="QWidget" name="camera_selectClass">
   <property name="geometry">
    <rect>
     <x>0</x>

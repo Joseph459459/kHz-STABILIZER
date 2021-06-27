@@ -125,8 +125,8 @@ void test_loop_times() {
 
 	}
 
-	write_large_serial_buffer(loop_times, 4000);
-	write_large_serial_buffer(shot_number, 4000);
+	write_large_serial_buffer(loop_times, 128);
+	write_large_serial_buffer(shot_number, 128);
 
 }
 
@@ -141,11 +141,19 @@ void write_large_serial_buffer(std::vector<int> &buffer, int chunk_size) {
 		while (!Serial.available());
 
 		if (Serial.read() == CONTINUE) {
-			int bytes_written = Serial.write((const byte*)curr_pos, chunk_size);
-			if (bytes_written != chunk_size)
-				return;
-			tot_bytes_written += bytes_written;
-			curr_pos += chunk_size / sizeof(int);
+
+      int bytes_written = 0;
+
+      while (bytes_written != chunk_size){
+      
+  			bytes_written = Serial.write((const byte*)curr_pos, chunk_size);
+  
+        curr_pos += bytes_written / sizeof(int);
+        
+  			tot_bytes_written += bytes_written;
+             
+      }
+      
 		}
 
 	}

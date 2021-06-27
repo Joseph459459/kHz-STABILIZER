@@ -1,7 +1,7 @@
-#include "cameraselect.h"
-#include "FASTSTABILIZER.h"
+#include "camera_select.h"
+#include "kHz_Stabilizer.h"
 
-cameraselect::cameraselect(QWidget *parent)
+camera_select::camera_select(QWidget *parent)
 	: QWidget(parent)
 {
 
@@ -26,14 +26,14 @@ cameraselect::cameraselect(QWidget *parent)
 	ui.setupUi(this);
 }
 
-cameraselect::~cameraselect()
+camera_select::~camera_select()
 {
 
 	PylonTerminate();
 
 }
 
-void cameraselect::on_refreshButton_clicked() {
+void camera_select::on_refreshButton_clicked() {
 
 
 		ui.cameraList->clear();
@@ -48,7 +48,7 @@ void cameraselect::on_refreshButton_clicked() {
 		}
 }
 
-void cameraselect::on_cameraList_itemDoubleClicked(QListWidgetItem* item) {
+void camera_select::on_cameraList_itemDoubleClicked(QListWidgetItem* item) {
 
 	if (selecting_monitor_cam == true) {
 
@@ -58,7 +58,7 @@ void cameraselect::on_cameraList_itemDoubleClicked(QListWidgetItem* item) {
 			&& CTlFactory::GetInstance().IsDeviceAccessible(fb_info) 
 			&& CTlFactory::GetInstance().IsDeviceAccessible(m_info)) {
 			
-			FASTSTABILIZER* f = new FASTSTABILIZER(fb_info,m_info, this);
+            kHz_Stabilizer* f = new kHz_Stabilizer(fb_info,m_info, this);
 			f->show();
 		}
 
@@ -80,7 +80,7 @@ void cameraselect::on_cameraList_itemDoubleClicked(QListWidgetItem* item) {
 		case QMessageBox::No:
 			fb_info = devices[ui.cameraList->row(item)];
 			if (CTlFactory::GetInstance().IsDeviceAccessible(fb_info)) {
-				FASTSTABILIZER* f = new FASTSTABILIZER(fb_info, this);
+                kHz_Stabilizer* f = new kHz_Stabilizer(fb_info, this);
 				f->show();
 			}
 		case QMessageBox::Cancel:
