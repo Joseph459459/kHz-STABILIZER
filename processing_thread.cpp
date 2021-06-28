@@ -251,8 +251,8 @@ void processing_thread::setup_stabilize() {
 
 }
 
-void processing_thread::receive_large_serial_buffer(QSerialPort &teensy, std::vector<int> &buffer, int chunk_size) {
-	
+void processing_thread::receive_large_serial_buffer(QSerialPort& teensy, std::vector<int>& buffer, int chunk_size) {
+
 	const int tot_bytes = buffer.size() * sizeof(int);
 	int tot_bytes_read = 0;
 	int* curr_pos = buffer.data();
@@ -260,26 +260,28 @@ void processing_thread::receive_large_serial_buffer(QSerialPort &teensy, std::ve
 	while (tot_bytes_read < tot_bytes) {
 
 		teensy.write(QByteArray(1, CONTINUE));
-		teensy.waitForBytesWritten(10);
+		teensy.waitForBytesWritten(1000);
 
 		if (teensy.waitForReadyRead(1000)) {
-			int received_bytes = teensy.read((char*)curr_pos, chunk_size);
-			if (received_bytes != chunk_size) {
-				emit write_to_log("USB Synchronization Error: Unable to Read");
-				return;
+
+			int bytes_received = 0;
+
+			while (bytes_received != chunk_size) {
+
+				bytes_received = teensy.read((char*)curr_pos, chunk_size);
+
+				curr_pos += bytes_received / sizeof(int);
+
+				tot_bytes_read += bytes_received;
+
 			}
-			curr_pos += chunk_size / sizeof(int);
-			tot_bytes_read += received_bytes;
 		}
 	}
-
 }
 
 void processing_thread::test_loop_times() {
 
 	emit write_to_log(QString("Beginning Loop Time Test..."));
-
-#pragma region OPEN_PORT
 
 	QSerialPort teensy;
 
@@ -308,16 +310,16 @@ void processing_thread::test_loop_times() {
 	const int height = fb_cam.Height.GetValue();
 	const int width = fb_cam.Width.GetValue();
 
-	std::vector<int> computer_loop_times(5000);
+	std::vector<int> computer_loop_times(loop_times_window);
 
 	fb_cam.StartGrabbing();
 
 	int i = 0;
 	int missed = 0;
 
-	for (int i = 0; i < 5000; ++i) {
+	for (int i = 0; i < loop_times_window; ++i) {
 		
-        if (fb_cam.RetrieveResult(10, ptr, Pylon::TimeoutHandling_Return)) {
+        if (fb_cam.RetrieveResult(1000, ptr, Pylon::TimeoutHandling_Return)) {
 			auto start = high_resolution_clock::now();
 
 			centroid(ptr, height, width, new_centroid, threshold);
@@ -336,11 +338,12 @@ void processing_thread::test_loop_times() {
 
 	fb_cam.StopGrabbing();
 
-	std::vector<int> loop_times(5000);
-	std::vector<int> shots_sent(5000);
+	std::vector<int> loop_times(loop_times_window);
+	std::vector<int> shots_sent(loop_times_window);
 
-	receive_large_serial_buffer(teensy, loop_times, 4000);
-	receive_large_serial_buffer(teensy, shots_sent, 4000);
+
+	receive_large_serial_buffer(teensy, loop_times, 1000);
+	receive_large_serial_buffer(teensy, shots_sent, 1000);
 
 	time_t start = time(0);
 	std::string date_time = ctime(&start);

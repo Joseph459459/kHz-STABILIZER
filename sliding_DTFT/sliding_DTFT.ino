@@ -90,11 +90,11 @@ void test_loop_times() {
 	digitalWriteFast(LED_BUILTIN, HIGH);
 
 	int t_start = 0;
-	std::vector<int> loop_times(5000);
-	std::vector<int> shot_number(5000);
+	std::vector<int> loop_times(loop_times_window);
+	std::vector<int> shot_number(loop_times_window);
 	int* shot_ptr = shot_number.data();
 
-	for (int k = 0; k < 5000; ++k) {
+	for (int k = 0; k < loop_times_window; ++k) {
 
 		t_start = t;
 		digitalWriteFast(A14, HIGH);
@@ -125,12 +125,12 @@ void test_loop_times() {
 
 	}
 
-	write_large_serial_buffer(loop_times, 4000);
-	write_large_serial_buffer(shot_number, 4000);
+	write_large_serial_buffer(loop_times, 1000);
+	write_large_serial_buffer(shot_number, 1000);
 
 }
 
-void write_large_serial_buffer(std::vector<int> &buffer, int chunk_size) {
+void write_large_serial_buffer(std::vector<int>& buffer, int chunk_size) {
 
 	const int tot_bytes = buffer.size() * sizeof(int);
 	int tot_bytes_written = 0;
@@ -141,11 +141,19 @@ void write_large_serial_buffer(std::vector<int> &buffer, int chunk_size) {
 		while (!Serial.available());
 
 		if (Serial.read() == CONTINUE) {
-			int bytes_written = Serial.write((const byte*)curr_pos, chunk_size);
-			if (bytes_written != chunk_size)
-				return;
-			tot_bytes_written += bytes_written;
-			curr_pos += chunk_size / sizeof(int);
+
+			int bytes_written = 0;
+
+			while (bytes_written != chunk_size) {
+
+				bytes_written = Serial.write((const byte*)curr_pos, chunk_size);
+
+				curr_pos += bytes_written / sizeof(int);
+
+				tot_bytes_written += bytes_written;
+
+			}
+
 		}
 
 	}

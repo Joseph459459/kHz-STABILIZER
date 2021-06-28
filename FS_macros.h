@@ -2,6 +2,8 @@
 #include <stdio.h>
 
 #define _window 5000
+#define loop_times_window 5000
+
 
 #define sampling_freq 1000.0
 #define PI 3.14159265358979323846

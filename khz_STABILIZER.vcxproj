@@ -43,8 +43,8 @@
     <Import Project="$(QtMsBuild)\qt_defaults.props" />
   </ImportGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="QtSettings">
-    <QtInstall>5.14.2_msvc2017_64</QtInstall>
-    <QtModules>concurrent;core;gui;printsupport;qml;serialport;widgets;winextras</QtModules>
+    <QtInstall>5.14.2</QtInstall>
+    <QtModules>concurrent;core;gui;printsupport;serialport;widgets</QtModules>
     <QtBuildConfig>debug</QtBuildConfig>
     <QtQMLDebugEnable>false</QtQMLDebugEnable>
     <QtHeaderSearchPath>
