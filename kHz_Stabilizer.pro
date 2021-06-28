@@ -31,6 +31,7 @@ SOURCES += \
     qcustomplot.cpp
 
 HEADERS += \
+    SDTFT_algo.h \
     camera_select.h \
     console.h \
     feedback_cam.h \
@@ -52,7 +53,7 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-LIBS += -llapack -lblas -larmadillo -lgsl -lfftw3f
+LIBS += -llapack -lblas -larmadillo -lgsl -lfftw3f -lfftw3
 
 LIBS += -L/opt/pylon/lib/ -lpylonbase
 LIBS += -L/opt/pylon/lib/ -lpylonbase-6.2.0

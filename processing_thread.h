@@ -33,16 +33,17 @@ public:
     std::atomic_bool acquiring = false;
 
 	double* p;
-	float fft_outx[_window];
-	float fft_outy[_window];
-	QVector<double> fftx;
-	QVector<double> ffty;
-	fftwf_plan planx;
-	fftwf_plan plany;
-	int plan;
+
+    double fft_out_x[_window];
+    double fft_out_y[_window];
+
+    QVector<double> fft_x;
+    QVector<double> fft_y;
+
+    int run_plan;
 	int threshold = 0;
-	uint16_t yDACmax;
-	uint16_t xDACmax;
+    uint16_t max_DAC_range_y;
+    uint16_t max_DAC_range_x;
     QVector<double> system_response_input;
 	std::array<float, 3> drive_freqs;
 
@@ -52,11 +53,7 @@ public:
 	std::vector<int> y_N;
 	std::vector<float> y_tones;
 
-	std::vector<float> mean_vals;
-	std::vector<std::array<float, 2>> DAC_centroid_linear;
-
-	float mean_x;
-	float mean_y;
+    std::vector<float> centroid_set_points;
 
     std::atomic_bool monitor_cam_enabled = false;
 
@@ -69,7 +66,6 @@ public slots:
 	void adjust_framerate();
 	void find_actuator_range();
 	void learn_system_response();
-	void setup_stabilize();
 	void receive_large_serial_buffer(QSerialPort& teensy, std::vector<int>& buffer, int chunk_size);
 	void identify_initial_vals();
 	void receive_cmd_line_data(QStringList cmd_str);
@@ -83,7 +79,7 @@ signals:
 	void send_imgptr_blocking(GrabResultPtr_t ptr);
 	void updateprogress(int i);
 	void update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y);
-	void update_tf_plot(QVector<QVector<double>> to_plot);
+    void update_sys_response_plot(QVector<QVector<double>> to_plot);
 	void finished_analysis();
 
 
@@ -120,12 +116,13 @@ inline void centroid(GrabResultPtr_t ptr, const int height, const int width, flo
 
 }
 
-inline std::array<float, 2> centroid(GrabResultPtr_t ptr, const int threshold) {
+template <typename T>
+inline std::array<T, 2> centroid(GrabResultPtr_t ptr, const int threshold) {
 
 	const int height = ptr->GetHeight();
 	const int width = ptr->GetWidth();
 
-	std::array<float, 2> out = { 0,0 };
+    std::array<T, 2> out = { 0,0 };
 	unsigned char* p = (unsigned char*)ptr->GetBuffer();
 
 	int sumx = 0;
@@ -147,8 +144,8 @@ inline std::array<float, 2> centroid(GrabResultPtr_t ptr, const int threshold) {
 		}
 	}
 
-	out[0] = sumx / (float)sum;
-	out[1] = sumy / (float)sum;
+    out[0] = sumx / (T)sum;
+    out[1] = sumy / (T)sum;
 	return out;
 }
 

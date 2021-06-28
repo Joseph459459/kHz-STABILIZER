@@ -220,7 +220,7 @@ void feedback_cam::finished_analysis()
 	this->setDisabled(false);
 	safe_thread_close();
 
-	proc_thread->plan = STREAM;
+	proc_thread->run_plan = STREAM;
 	proc_thread->start();
 
 }
@@ -239,7 +239,7 @@ void feedback_cam::on_noiseSpectrumButton_clicked() {
 
     ui.systemResponseButton->setEnabled(true);
 
-	proc_thread->plan = SPECTRUM;
+	proc_thread->run_plan = SPECTRUM;
 	this->setDisabled(true);
 	progressbox->setDisabled(false);
 	proc_thread->start(QThread::TimeCriticalPriority);
@@ -260,7 +260,7 @@ void feedback_cam::on_correlateCamerasButton_clicked() {
 	//progressbox->setDisabled(false);
 
 
-	proc_thread->plan = CORRELATE;
+	proc_thread->run_plan = CORRELATE;
 	this->setDisabled(true);
 	proc_thread->start(QThread::TimeCriticalPriority);
 
@@ -270,7 +270,7 @@ void feedback_cam::on_actuatorRangeButton_clicked() {
 	
 	safe_thread_close();
 
-	proc_thread->plan = FIND_RANGE;
+	proc_thread->run_plan = FIND_RANGE;
 
 	proc_thread->start();
 }
@@ -288,7 +288,7 @@ void feedback_cam::on_systemResponseButton_clicked() {
 
 	safe_thread_close();
 	
-	proc_thread->plan = LEARN_TF;
+	proc_thread->run_plan = LEARN_SYS_RESPONSE;
 	proc_thread->start(QThread::TimeCriticalPriority);
 }
 

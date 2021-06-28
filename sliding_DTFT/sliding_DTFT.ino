@@ -3,12 +3,12 @@
 #include <algorithm>
 #include <ADC.h>
 #include <vector>
-#include "/home/joseph/kHz-STABILIZER/FS_macros.h"
+#include "/home/joseph/kHz-STABILIZER/kHz_macros.h"
 
 
 ADC* adc = new ADC();
 
-uint16_t tf_input_arr[tf_window];
+uint16_t system_response_input_arr[sys_response_window];
 
 int i, j;
 int in[2] = { 0 , 0 };
@@ -60,8 +60,8 @@ void post_setup() {
 			find_range();
 			break;
 
-		case LEARN_TF:
-			learn_tf();
+		case LEARN_SYS_RESPONSE:
+			learn_system_response();
 			break;
 
 		case STABILIZE:
@@ -166,6 +166,8 @@ void stabilize() {
 
 	init_actuator();
 
+  Serial.write((byte)CONTINUE);
+
 	while (true) {
 
 		elapsedMicros m;
@@ -189,23 +191,23 @@ void stabilize() {
 	}
 }
 
-void learn_tf() {
+void learn_system_response() {
 	
 	digitalWriteFast(LED_BUILTIN, HIGH);
 
 	Serial.readBytes((char*)drive_freqs, 12);
 	Serial.readBytes((char*)&yDACmax, 2);
 	
-	tf_input_(tf_input_arr,yDACmax,drive_freqs);
+	generate_system_response_input(system_response_input_arr,yDACmax,drive_freqs);
 
 	init_actuator();
 
 	Serial.clear();
-	Serial.write((char*) CONTINUE, 1);
+	Serial.write((byte) CONTINUE);
 	
 	i = 0;
 
-	while (i < tf_window) {
+	while (i < sys_response_window) {
 
 		elapsedMillis m;
 		while (!Serial.available()) {
@@ -221,8 +223,8 @@ void learn_tf() {
 
 		else {
 			delayMicroseconds(25);
-			//analogWriteDAC0(tf_input_arr[i]);
-			analogWriteDAC1(tf_input_arr[i]);
+			//analogWriteDAC0(system_response_input_arr[i]);
+			analogWriteDAC1(system_response_input_arr[i]);
 			++i;
 		}
 	}

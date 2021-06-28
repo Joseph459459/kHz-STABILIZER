@@ -85,7 +85,7 @@ void kHz_Stabilizer::on_stabilizeButton_clicked() {
 
 	update_filter_params();
 
-	proc_thread.plan = STABILIZE;
+    proc_thread.run_plan = STABILIZE;
 	proc_thread.start(QThread::TimeCriticalPriority);
 }
 
@@ -116,7 +116,7 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, FC, &feedback_cam::updateimage,Qt::BlockingQueuedConnection);
 
     connect(&proc_thread, &processing_thread::update_fft_plot, this, &kHz_Stabilizer::update_fft_plot);
-    connect(&proc_thread, &processing_thread::update_tf_plot, this, &kHz_Stabilizer::update_tf_plot);
+    connect(&proc_thread, &processing_thread::update_sys_response_plot, this, &kHz_Stabilizer::update_tf_plot);
 
 	FC->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -132,7 +132,7 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 
 	FC->show();
 
-	proc_thread.plan = STREAM;
+    proc_thread.run_plan = STREAM;
     proc_thread.start(QThread::TimeCriticalPriority);
 
 }
@@ -273,10 +273,10 @@ void kHz_Stabilizer::create_fft_plots() {
 
 void kHz_Stabilizer::update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y) {
 
-	ui.plot->graph(0)->setData(freqs, proc_thread.fftx);
+	ui.plot->graph(0)->setData(freqs, proc_thread.fft_x);
 	ui.plot->axisRect(0)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
 	ui.plot->graph(0)->rescaleKeyAxis();
-	ui.plot->graph(1)->setData(freqs, proc_thread.ffty);
+	ui.plot->graph(1)->setData(freqs, proc_thread.fft_y);
 	ui.plot->axisRect(1)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
 	ui.plot->graph(1)->rescaleKeyAxis();
 	ui.plot->replot();
