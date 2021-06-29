@@ -35,8 +35,7 @@ public:
 
 	processing_thread proc_thread;
 	QVector<double> freqs;
-	QVector<myFilter> x_filters;
-	QVector<myFilter> y_filters;
+    QVector<myFilter> filters[2];
 	std::vector<QCPCurve*> hysteresis_curves;
 	QTimer animateTimer;
 	float phi = 0;

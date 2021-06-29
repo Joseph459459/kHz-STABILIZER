@@ -32,7 +32,6 @@ struct SDTFT_algo {
         for (int i = 0; i < tones.size(); ++i){
             omega[i] = 2 * PI * tones[i] / 1000;
             this->N[i] = N[i];
-
         }
 
         for (int i = 0; i < 3; ++i){
@@ -44,6 +43,7 @@ struct SDTFT_algo {
         noise = new float[maxN + 1]();
 
         this->SET_POINT = SET_POINT;
+        this->DAC_max = DAC_max;
 
 	}
 
@@ -75,6 +75,7 @@ struct SDTFT_algo {
 	float noise_element = 0;
 	float target[3];
 	int DAC_cmds[3] = { 0 };
+    int DAC_max = 0;
 
     // the target centroid - should be 1/2 of the max DAC range
 	float SET_POINT;
@@ -127,7 +128,7 @@ struct SDTFT_algo {
 		DAC_cmds[0] = (target[0] - B - (C + 2 * D) * DAC_cmds[1] + D * DAC_cmds[2]) / (A - C - D);
 
 		DAC_cmds[0] = std::max(DAC_cmds[0], 0);
-		DAC_cmds[0] = std::min(DAC_cmds[0], 4095);
+        DAC_cmds[0] = std::min(DAC_cmds[0], DAC_max);
 		
 		return DAC_cmds[0];
 

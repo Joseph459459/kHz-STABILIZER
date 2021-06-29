@@ -279,9 +279,9 @@ void feedback_cam::on_loopTimeButton_clicked() {
 
 	safe_thread_close();
 	this->setDisabled(true);
-    //proc_thread->plan = TEST_LOOP_TIME;
-    //proc_thread->start(QThread::TimeCriticalPriority);
-    proc_thread->test_loop_times();
+    proc_thread->run_plan = TEST_LOOP_TIME;
+    proc_thread->start(QThread::TimeCriticalPriority);
+    //proc_thread->test_loop_times();
 }
 
 void feedback_cam::on_systemResponseButton_clicked() {

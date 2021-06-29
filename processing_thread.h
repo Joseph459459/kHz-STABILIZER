@@ -20,40 +20,28 @@ public:
 
 	~processing_thread();
 
-	QVector<float> centroidx_f;
-	QVector<float> centroidy_f;
-	QVector<double> centroidx_d;
-	QVector<double> centroidy_d;
-
-	std::vector<std::array<double, 4>> fit_params;
+    std::array<double, 4> fit_params[2];
 
 	Camera_t fb_cam;
 	Camera_t monitor_cam;
 
     std::atomic_bool acquiring = false;
 
-	double* p;
-
-    double fft_out_x[_window];
-    double fft_out_y[_window];
-
-    QVector<double> fft_x;
-    QVector<double> fft_y;
+    QVector<double> centroids[2];
+    QVector<double> fft[2];
 
     int run_plan;
+
 	int threshold = 0;
-    uint16_t max_DAC_range_y;
-    uint16_t max_DAC_range_x;
+
+    uint16_t max_DAC_range[2] = {4095,4095};
+
     QVector<double> system_response_input;
 	std::array<float, 3> drive_freqs;
 
-	std::vector<int> x_N;
-	std::vector<float> x_tones;
-
-	std::vector<int> y_N;
-	std::vector<float> y_tones;
-
-    std::vector<float> centroid_set_points;
+    std::vector<int> N[2];
+    std::vector<float> tones[2];
+    float centroid_set_points[2];
 
     std::atomic_bool monitor_cam_enabled = false;
 
@@ -67,7 +55,6 @@ public slots:
 	void find_actuator_range();
 	void learn_system_response();
 	void receive_large_serial_buffer(QSerialPort& teensy, std::vector<int>& buffer, int chunk_size);
-	void identify_initial_vals();
 	void receive_cmd_line_data(QStringList cmd_str);
 	void test_loop_times();
 	void open_port(QSerialPort& teensy);
@@ -228,5 +215,36 @@ inline std::array<double, 6> allparams(GrabResultPtr_t ptr, const int thresh) {
 	};
 
 	return out;
+
+}
+
+template <typename T>
+double preciserms(T& s) {
+
+    double sumx = 0;
+    double sumxx = 0;
+    int fails = 0;
+    for (int i = 0; i < s.size(); ++i) {
+
+        if (!isnan(s[i])) {
+            sumx += s[i];
+        }
+        else
+            fails++;
+    }
+
+    double shift = sumx / (double)s.size();
+
+    sumx = 0;
+
+    for (int i = 0; i < s.size(); ++i) {
+
+        if (!isnan(s[i])) {
+            sumx += s[i] - shift;
+            sumxx += (s[i] - shift) * (s[i] - shift);
+        }
+    }
+
+    return sqrt((sumxx - sumx * sumx / ((double)s.size() - fails)) / (s.size() - fails));
 
 }
