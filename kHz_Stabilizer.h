@@ -76,7 +76,7 @@ inline QVector<double> kHz_Stabilizer::filtersim(QVector<double>& in, int graphp
 
 	QVector<double> out(in.size());
 
-	double omega_0 = 2 * PI * (graphpos / (_window / 2.0) * 500) / sampling_freq;
+	double omega_0 = 2 * PI * (graphpos / (fft_window / 2.0) * 500) / sampling_freq;
 
 
 	for (int i = 0; i < in.size(); ++i) {

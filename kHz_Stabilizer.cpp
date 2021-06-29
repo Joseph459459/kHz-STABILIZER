@@ -235,10 +235,10 @@ void kHz_Stabilizer::create_fft_plots() {
 
 	ui.plot->replot();
 
-	freqs.resize(_window / 2.0);
+	freqs.resize(fft_window / 2.0);
 
-	for (int i = 0; i < _window / 2; ++i) {
-		freqs[i] = (sampling_freq / 2.0) / (_window / 2.0) * i;
+	for (int i = 0; i < fft_window / 2; ++i) {
+		freqs[i] = (sampling_freq / 2.0) / (fft_window / 2.0) * i;
 	}
 
 	for (int i = 0; i < 6; ++i) {
@@ -279,12 +279,12 @@ void kHz_Stabilizer::create_fft_plots() {
 
 void kHz_Stabilizer::update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y) {
 
-    ui.plot->graph(0)->setData(freqs, proc_thread.fft[0]);
-	ui.plot->axisRect(0)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
-	ui.plot->graph(0)->rescaleKeyAxis();
-    ui.plot->graph(1)->setData(freqs, proc_thread.fft[1]);
-	ui.plot->axisRect(1)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
-	ui.plot->graph(1)->rescaleKeyAxis();
+    for (int i = 0; i < 2; ++i){
+
+    ui.plot->graph(i)->setData(freqs, QVector<double>(proc_thread.fft[i].begin(),proc_thread.fft[i].begin() + fft_window/2));
+    ui.plot->axisRect(i)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
+    ui.plot->graph(i)->rescaleKeyAxis();
+}
 	ui.plot->replot();
 	
 	update_log(QString("rms x: ") + QString::number(rms_x,'f',2));
@@ -357,7 +357,7 @@ void kHz_Stabilizer::new_filter(const QCPDataSelection& p) {
 	
     for (int i = 0; i < 2; ++i)
 
-	if (ui.plot->graph(0)->selected()) {
+    if (ui.plot->graph(i)->selected()) {
 
         int j;
         for (j = 0; j < filters[0].size(); ++j) {
@@ -373,7 +373,7 @@ void kHz_Stabilizer::new_filter(const QCPDataSelection& p) {
         filters[i][j].N = 50;
         filters[i][j].graphdatapos = p.dataRange().begin();
 
-        update_freq_label(50, filters[0][j].graphdatapos);
+        update_freq_label(50, filters[i][j].graphdatapos);
 
 		ui.plot->replot();
 	}
@@ -474,7 +474,7 @@ void kHz_Stabilizer::animate(int i) {
 
 void kHz_Stabilizer::update_freq_label(int N, int graphdatapos) {
 
-	ui.plotLabel->setText("Freq: " + QString::number(graphdatapos / (_window / 2.0) * 500) +
+	ui.plotLabel->setText("Freq: " + QString::number(graphdatapos / (fft_window / 2.0) * 500) +
 		" Hz | Window: " + QString::number(N) + " ms ");
 
 }
@@ -490,7 +490,7 @@ void kHz_Stabilizer::update_filter_params() {
     for (int j = 0; j < filters[i].size(); ++j) {
 
         if (!filters[i][j].ptr->data()->isEmpty()) {
-            proc_thread.tones[i].push_back(filters[i][j].graphdatapos / (_window / 2.0) * (sampling_freq / 2));
+            proc_thread.tones[i].push_back(filters[i][j].graphdatapos / (fft_window / 2.0) * (sampling_freq / 2));
             proc_thread.N[i].push_back(filters[i][j].N);
 		}
 	}

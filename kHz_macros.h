@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <math.h>
 
-#define _window 5000
+#define fft_window 5000
 
 #define sampling_freq 1000.0
 #define PI 3.14159265358979323846

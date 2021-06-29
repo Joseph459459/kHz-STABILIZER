@@ -221,7 +221,7 @@ void feedback_cam::finished_analysis()
 	safe_thread_close();
 
 	proc_thread->run_plan = STREAM;
-	proc_thread->start();
+    proc_thread->start(QThread::TimeCriticalPriority);
 
 }
 
@@ -229,7 +229,7 @@ void feedback_cam::on_noiseSpectrumButton_clicked() {
 
 	safe_thread_close();
 
-	progressbox = new QProgressDialog("Recording...", "Abort", 0, _window, this);
+	progressbox = new QProgressDialog("Recording...", "Abort", 0, fft_window, this);
 	progressbox->setAutoClose(true);
 	progressbox->setAttribute(Qt::WA_DeleteOnClose);
 	progressbox->setWindowTitle(QString("Recording..."));
@@ -300,7 +300,7 @@ void feedback_cam::on_exposureBox_valueChanged(int i) {
 
 void feedback_cam::on_upButton_clicked() {
 	if (proc_thread->fb_cam.OffsetY() - 4 > 0 )
-		proc_thread->fb_cam.OffsetY.SetValue(proc_thread->fb_cam.OffsetY() - 4);
+        proc_thread->fb_cam.OffsetY.SetValue(proc_thread->fb_cam.OffsetY() - 4);
 }
 
 void feedback_cam::on_downButton_clicked() {
@@ -310,7 +310,7 @@ void feedback_cam::on_downButton_clicked() {
 
 void feedback_cam::on_rightButton_clicked() {
 	if (proc_thread->fb_cam.OffsetX() + proc_thread->fb_cam.Width() + 4 < proc_thread->fb_cam.WidthMax())
-		proc_thread->fb_cam.OffsetX.SetValue(proc_thread->fb_cam.OffsetX() + 4);
+        proc_thread->fb_cam.OffsetX.SetValue(proc_thread->fb_cam.OffsetX() + 4);
 }
 
 void feedback_cam::on_leftButton_clicked() {

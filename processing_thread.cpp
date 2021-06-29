@@ -178,6 +178,16 @@ void processing_thread::test_loop_times() {
 
   float new_centroid[2];
 
+  GrabResultPtr_t ptr;
+
+  const int height = fb_cam.Height.GetValue();
+  const int width = fb_cam.Width.GetValue();
+
+  std::vector<int> computer_loop_times(5000);
+  fb_cam.GevSCPSPacketSize = 1000;
+  fb_cam.MaxNumBuffer = 5;
+  fb_cam.StartGrabbing();
+
   QSerialPort teensy;
 
   open_port(teensy);
@@ -185,20 +195,11 @@ void processing_thread::test_loop_times() {
   teensy.write(QByteArray(1, TEST_LOOP_TIME));
   teensy.waitForBytesWritten(100);
 
-  GrabResultPtr_t ptr;
-
-  const int height = fb_cam.Height.GetValue();
-  const int width = fb_cam.Width.GetValue();
-
-  std::vector<int> computer_loop_times(5000);
-  fb_cam.GevSCPSPacketSize.SetValue(1000);
-  fb_cam.StartGrabbing(GrabStrategy_LatestImageOnly);
-
   int missed = 0;
 
   for (int i = 0; i < 5000; ++i) {
 
-    if (fb_cam.RetrieveResult(100, ptr, Pylon::TimeoutHandling_Return)) {
+    if (fb_cam.RetrieveResult(1000, ptr, Pylon::TimeoutHandling_Return)) {
       auto start = high_resolution_clock::now();
 
       centroid(ptr, height, width, new_centroid, threshold);
@@ -221,7 +222,9 @@ void processing_thread::test_loop_times() {
   fb_cam.StopGrabbing();
 
   std::vector<int> loop_times(5000);
+  loop_times.reserve(5200);
   std::vector<int> shots_sent(5000);
+  shots_sent.reserve(5200);
 
   receive_large_serial_buffer(teensy, loop_times, 128);
   receive_large_serial_buffer(teensy, shots_sent, 128);
@@ -323,9 +326,9 @@ void processing_thread::stabilize() {
 #else
 
   std::vector<SDTFT_algo> axes = {
-      SDTFT_algo(fit_params[0], tones[0], N[0], max_DAC_range[0],
+      SDTFT_algo(fit_params[0], tones[0], N[0], max_DAC_val[0],
                  centroid_set_points[0]),
-      SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_range[1],
+      SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_val[1],
                  centroid_set_points[1])};
 
   GrabResultPtr_t ptr;
@@ -407,13 +410,13 @@ void processing_thread::receive_cmd_line_data(QStringList cmd_str_list) {
         return;
       }
 
-      max_DAC_range[i] = DAC_range;
+      max_DAC_val[i] = DAC_range;
     }
 
     write_to_log(QString("DAC range in x: ") +
-                 QString::number(max_DAC_range[0]));
+                 QString::number(max_DAC_val[0]));
     write_to_log(QString("DAC range in y: ") +
-                 QString::number(max_DAC_range[1]));
+                 QString::number(max_DAC_val[1]));
   }
 }
 
@@ -463,7 +466,6 @@ void processing_thread::stream() {
 
         emit send_feedback_ptr(fb_ptr);
 
-        std::array<float, 2> p = centroid<float>(fb_ptr, threshold);
       }
     }
 
@@ -486,34 +488,35 @@ void processing_thread::analyze_spectrum() {
     return;
   }
 
-  centroids[0].resize(_window);
-  centroids[1].resize(_window);
+  centroids[0].resize(fft_window);
+  centroids[1].resize(fft_window);
   centroids[0].fill(0);
   centroids[1].fill(0);
 
-  std::vector<GrabResultPtr_t> ptrs(_window);
+  std::vector<GrabResultPtr_t> ptrs(fft_window);
 
   int missed = 0;
   int i = 0;
 
-  fb_cam.MaxNumBuffer.SetValue(_window);
+  fb_cam.MaxNumBuffer.SetValue(fft_window);
   fb_cam.StartGrabbing();
 
-  while (i < _window) {
+  while (i < fft_window) {
     if (fb_cam.RetrieveResult(30, ptrs[i], Pylon::TimeoutHandling_Return)) {
       ++i;
     } else {
       ++missed;
     }
 
-    if (i % (_window / 100) == 0) {
+    if (i % (fft_window / 100) == 0) {
       emit updateprogress(i);
     }
   }
 
   fb_cam.StopGrabbing();
+  fb_cam.MaxNumBuffer.SetValue(10);
 
-  emit updateprogress(_window);
+  emit updateprogress(fft_window);
 
   emit write_to_log(QString::number(i) + QString(" Shots recorded"));
 
@@ -537,7 +540,7 @@ void processing_thread::analyze_spectrum() {
 
   for (int i = 0; i < 2; ++i) {
 
-    for (int j = 0; j < _window; ++j) {
+    for (int j = 0; j < fft_window; ++j) {
       if (std::isnan(centroid_results.resultAt(j)[i]))
         ++nans;
 
@@ -549,39 +552,40 @@ void processing_thread::analyze_spectrum() {
 
     /* NORMALIZE TO HIGHEST AMPLITUDE PEAK ----------------*/
 
-    float mean = sum / _window;
+    float mean = sum / fft_window;
 
-    for (int j = 0; j < _window; ++j) {
+    for (int j = 0; j < fft_window; ++j) {
       centroids[i][j] -= mean;
     }
 
     /* FAST FOURIER TRANSFORM -----------------------------*/
 
-    fft[i].resize(_window / 2);
+    fft[i].resize(fft_window);
 
-    fftw_plan plan = fftw_plan_r2r_1d(_window, centroids[i].data(),
+    fftw_plan plan = fftw_plan_r2r_1d(fft_window, centroids[i].data(),
                                       fft[i].data(), FFTW_R2HC, FFTW_ESTIMATE);
 
     fftw_execute(plan);
 
-    fft[i][0] = sqrt(fft[i][0] * fft[i][0]);
+    fft[i][0] = sqrt(fft[i][0] * fft[i][0]) * 0;
 
-    for (int j = 1; j < (_window + 1) / 2 - 1; ++j) {
+    for (int j = 1; j < (fft_window + 1) / 2 - 1; ++j) {
 
       fft[i][j] = sqrt(fft[i][j] * fft[i][j] +
-                       fft[i][_window - j] * fft[i][_window - j]);
+                       fft[i][fft_window - j] * fft[i][fft_window - j]);
     }
 
     double max_amplitude = *(std::max_element(fft[i].begin(), fft[i].end()));
 
-    for (int j = 0; j < _window / 2; ++j) {
-      fft[i][i] = fft[i][j] / max_amplitude;
+    for (int j = 0; j < fft_window / 2; ++j) {
+      fft[i][j] = fft[i][j] / max_amplitude;
     }
 
     fftw_destroy_plan(plan);
 
-    find_driving_freqs();
   }
+
+  find_driving_freqs();
 
   emit update_fft_plot(
       preciserms(centroids[0]), preciserms(centroids[1]),
@@ -604,9 +608,9 @@ void processing_thread::find_driving_freqs() {
   for (int i = 0; i < 2; ++i) {
 
     // modify the noise spectrum to weigh the odd harmonics more
-    gsl_vector *modified_centroid = gsl_vector_alloc(_window / 2 / 5);
+    gsl_vector *modified_centroid = gsl_vector_alloc(fft_window / 2 / 5);
 
-    for (int j = 0; j < _window / 2 / 5; ++j) {
+    for (int j = 0; j < fft_window / 2 / 5; ++j) {
       gsl_vector_set(modified_centroid, j,
                      fft[i][j] + 0.2 * fft[i][j + 2 * j] +
                          0.1 * fft[i][j + 4 * j]);
@@ -614,30 +618,30 @@ void processing_thread::find_driving_freqs() {
 
     // perform median (smoothing) filtering to find local minima
     gsl_filter_median_workspace *filt = gsl_filter_median_alloc(10);
-    gsl_vector *filtered = gsl_vector_alloc(_window / 2 / 5);
+    gsl_vector *filtered = gsl_vector_alloc(fft_window / 2 / 5);
     gsl_filter_median(GSL_FILTER_END_TRUNCATE, modified_centroid, filtered,
                       filt);
 
     // First third, 0-33 Hz
     gsl_vector_view y1 =
-        gsl_vector_subvector(filtered, 5 * _window / 2 / 500,
-                             _window / 2 / 5 / 3 - 5 * _window / 2 / 500);
+        gsl_vector_subvector(filtered, 5 * fft_window / 2 / 500,
+                             fft_window / 2 / 5 / 3 - 5 * fft_window / 2 / 500);
 
     // Second third 33-66 Hz
-    gsl_vector_view y2 = gsl_vector_subvector(filtered, _window / 2 / 5 / 3,
-                                              _window / 2 / 5 / 3);
+    gsl_vector_view y2 = gsl_vector_subvector(filtered, fft_window / 2 / 5 / 3,
+                                              fft_window / 2 / 5 / 3);
 
     // Last third 66-100 Hz
     gsl_vector_view y3 =
-        gsl_vector_subvector(filtered, 2 * _window / 2 / 5 / 3,
-                             _window / 2 / 5 / 3 - 10 * _window / 2 / 500);
+        gsl_vector_subvector(filtered, 2 * fft_window / 2 / 5 / 3,
+                             fft_window / 2 / 5 / 3 - 10 * fft_window / 2 / 500);
 
     drive_freqs[0] =
-        (gsl_vector_min_index(&y1.vector) + 5 * _window / 2 / 500) / 5;
+        (gsl_vector_min_index(&y1.vector) + 5 * fft_window / 2 / 500) / 5;
     drive_freqs[1] =
-        (gsl_vector_min_index(&y2.vector) + _window / 2 / 5 / 3) / 5;
+        (gsl_vector_min_index(&y2.vector) + fft_window / 2 / 5 / 3) / 5;
     drive_freqs[2] =
-        (gsl_vector_min_index(&y3.vector) + 2 * _window / 2 / 5 / 3) / 5;
+        (gsl_vector_min_index(&y3.vector) + 2 * fft_window / 2 / 5 / 3) / 5;
 
     emit write_to_log(
         " Drive frequencies : " + QString::number(drive_freqs[0]) + " Hz, " +
@@ -698,7 +702,7 @@ void processing_thread::find_actuator_range() {
 
   long AOI[2] = {fb_cam.Width(), fb_cam.Height()};
 
-  for (int i = 1; i > 0; --i) {
+  for (int i = 0; i < 2 ; ++i) {
 
     while (true) {
 
@@ -731,9 +735,9 @@ void processing_thread::find_actuator_range() {
 
         if (teensy.waitForReadyRead(1000)) {
           if (*teensy.read(1) == STOP_FLAG) {
-            max_DAC_range[i] = *((uint16_t *)teensy.read(2).data());
-            emit write_to_log(QString("Success: the y axis DAC uses " +
-                                      QString::number(max_DAC_range[i] + 1) +
+            max_DAC_val[i] = *((uint16_t *)teensy.read(2).data());
+            emit write_to_log(QString("Success: the " + QString(x_y[i]) + " axis DAC uses " +
+                                      QString::number(max_DAC_val[i] + 1) +
                                       " out of 4096 available units of range"));
             break;
           }
@@ -775,7 +779,7 @@ void processing_thread::learn_system_response() {
     centroids[1].fill(0);
 
     generate_system_response_input(system_response_input.data(),
-                                   max_DAC_range[1], drive_freqs.data());
+                                   max_DAC_val[1], drive_freqs.data());
 
     /* SEND PLANS TO THE TEENSY ------------------------------------------*/
 
@@ -785,7 +789,7 @@ void processing_thread::learn_system_response() {
 
     teensy.write(QByteArray(1, LEARN_SYS_RESPONSE));
     teensy.write((const char *)drive_freqs.data(), 12);
-    teensy.write((const char *)&max_DAC_range[1], 2);
+    teensy.write((const char *)&max_DAC_val[1], 2);
 
     if (!teensy.waitForBytesWritten(100)) {
       emit write_to_log(QString("Synchronization error: could not write"));

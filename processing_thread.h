@@ -34,7 +34,7 @@ public:
 
 	int threshold = 0;
 
-    uint16_t max_DAC_range[2] = {4095,4095};
+    uint16_t max_DAC_val[2] = {4095,4095};
 
     QVector<double> system_response_input;
 	std::array<float, 3> drive_freqs;

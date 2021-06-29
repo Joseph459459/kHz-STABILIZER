@@ -5,7 +5,6 @@
 #include <vector>
 #include "/home/joseph/kHz_Stabilizer/kHz_macros.h"
 
-
 ADC* adc = new ADC();
 
 uint16_t system_response_input_arr[sys_response_window];
@@ -89,6 +88,8 @@ elapsedMicros t;
 
 void test_loop_times() {
 
+  delay(20);
+  
   digitalWriteFast(LED_BUILTIN, HIGH);
 
   int t_start = 0;
@@ -225,7 +226,7 @@ void learn_system_response() {
     }
 
     else {
-      delayMicroseconds(25);
+      delayMicroseconds(5);
       //analogWriteDAC0(system_response_input_arr[i]);
       analogWriteDAC1(system_response_input_arr[i]);
       ++i;

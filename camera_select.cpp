@@ -5,6 +5,11 @@ camera_select::camera_select(QWidget *parent)
 	: QWidget(parent)
 {
 
+
+    system("uploading arduino code...");
+    system("arduino --upload sliding_DTFT.ino");
+    system("DONE");
+
     system("echo Moving program to core 2 of the machine...");
     system("echo");
     system("taskset -cp 2 $(pidof kHz_Stabilizer)");
@@ -17,7 +22,7 @@ camera_select::camera_select(QWidget *parent)
 
     system("echo Increasing process priorities...");
     system("echo");
-    system("sudo renice -n 19 -g $(pidof kHz_Stabilizer)");
+    //system("sudo renice -n 19 -g $(pidof kHz_Stabilizer)");
     system("echo DONE");
 
     system("echo Removing interrupts from core 2...");
@@ -27,7 +32,7 @@ camera_select::camera_select(QWidget *parent)
 
     system("echo Assigning camera and microcontroller interrupts to core 2...");
     system("echo");
-    system("sudo tuna --irqs=132,133,155 --cpus=3 --move");
+    system("sudo tuna --irqs=132,155 --cpus=3 --move");
     system("echo DONE");
 
 
