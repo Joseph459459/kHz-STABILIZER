@@ -37,7 +37,6 @@ public:
     uint16_t max_DAC_val[2] = {4095,4095};
 
     QVector<double> system_response_input;
-	std::array<float, 3> drive_freqs;
 
     std::vector<int> N[2];
     std::vector<float> tones[2];

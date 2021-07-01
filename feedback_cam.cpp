@@ -15,6 +15,9 @@ feedback_cam::feedback_cam(processing_thread* thread, QWidget* parent)
 
 	}
 
+    if (!proc_thread->monitor_cam_enabled)
+        ui.correlateCamerasButton->setDisabled(true);
+
 	qColored = new QImage(1, 1, QImage::Format_Indexed8);
 
 	table_8[0] = qRgb(255, 255, 255);

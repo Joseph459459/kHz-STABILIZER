@@ -7,7 +7,7 @@ camera_select::camera_select(QWidget *parent)
 
 
     system("uploading arduino code...");
-    system("arduino --upload sliding_DTFT.ino");
+    //system("arduino --upload sliding_DTFT.ino");
     system("DONE");
 
     system("echo Moving program to core 2 of the machine...");

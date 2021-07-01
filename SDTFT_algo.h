@@ -17,6 +17,8 @@ struct complex {
 
 struct SDTFT_algo {
 	
+    SDTFT_algo(int i){};
+
     SDTFT_algo(std::array<double, 4> fit_params,
                     std::vector<float> tones,
                     std::vector<int> N, int DAC_max,
@@ -99,13 +101,13 @@ struct SDTFT_algo {
 
 		for (int j = 0; j < num_tones; ++j) {
 
-			float Chi_real = Chi[j].real;
+            float Chi_real_curr = Chi[j].real;
 
             Chi[j].real = noise_element * cosf(omega[j] * (1 - N[j])) - old_centroid[j] * cosf(omega[j]) +
                 Chi[j].real * cosf(omega[j]) - Chi[j].imag * sinf(omega[j]);
 
             Chi[j].imag = noise_element * sinf(omega[j] * (1 - N[j])) - old_centroid[j] * sinf(omega[j]) +
-                Chi_real * sinf(omega[j]) + Chi[j].imag * cosf(omega[j]);
+                Chi_real_curr * sinf(omega[j]) + Chi[j].imag * cosf(omega[j]);
 
 			float mag = 2.0 / N[j] * sqrtf(sq(Chi[j].real) + sq(Chi[j].imag));
 			float phase = atan2f(Chi[j].imag, Chi[j].real);
@@ -117,7 +119,7 @@ struct SDTFT_algo {
 
 		running_avg[n % moving_avg_window] = in / static_cast<float>(moving_avg_window);
 
-		if (n > maxN + moving_avg_window) {
+        if (n > moving_avg_window) {
 			error = std::accumulate(running_avg, running_avg + moving_avg_window, 0.f) - SET_POINT;
 		}
 

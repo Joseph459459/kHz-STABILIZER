@@ -199,10 +199,9 @@ void learn_system_response() {
 
   digitalWriteFast(LED_BUILTIN, HIGH);
 
-  Serial.readBytes((char*)drive_freqs, 12);
   Serial.readBytes((char*)&DACmax[1], 2);
 
-  generate_system_response_input(system_response_input_arr, DACmax[1], drive_freqs);
+  generate_system_response_input(system_response_input_arr, DACmax[1], 20,300);
 
   init_actuator();
 
@@ -222,7 +221,6 @@ void learn_system_response() {
     }
 
     if (Serial.read() != SYNC_FLAG) {
-      Serial.clear();
     }
 
     else {
@@ -304,19 +302,19 @@ inline void taper_down() {
 inline void init_actuator() {
 
   for (i = 0; i < 20; ++i) {
-    analogWriteDAC0(DACmax[0] / 20 * i);
+    //analogWriteDAC0(DACmax[0] / 20 * i);
     analogWriteDAC1(DACmax[1] / 20 * i);
     delay(1);
   }
 
   for (i = 0; i < 20; ++i) {
-    analogWriteDAC0(DACmax[0] - DACmax[0] / 20 * i);
+    //analogWriteDAC0(DACmax[0] - DACmax[0] / 20 * i);
     analogWriteDAC1(DACmax[1] - DACmax[1] / 20 * i);
     delay(1);
   }
 
   for (i = 0; i < 10; ++i) {
-    analogWriteDAC0(round((double)DACmax[0] / 2 / 20 * i));
+    //analogWriteDAC0(round((double)DACmax[0] / 2 / 20 * i));
     analogWriteDAC1(round((double)DACmax[1] / 2 / 20 * i));
     delay(1);
   }

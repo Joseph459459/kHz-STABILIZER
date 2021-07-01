@@ -282,11 +282,10 @@ void kHz_Stabilizer::update_fft_plot(float rms_x, float rms_y, float peak_to_pea
     for (int i = 0; i < 2; ++i){
 
     ui.plot->graph(i)->setData(freqs, QVector<double>(proc_thread.fft[i].begin(),proc_thread.fft[i].begin() + fft_window/2));
-    ui.plot->axisRect(i)->axis(QCPAxis::atLeft)->setRange(0, 1.25);
-    ui.plot->graph(i)->rescaleKeyAxis();
-}
-	ui.plot->replot();
-	
+    ui.plot->graph(i)->rescaleAxes();
+    ui.plot->replot();
+
+}	
 	update_log(QString("rms x: ") + QString::number(rms_x,'f',2));
 	update_log(QString("rms y: ") + QString::number(rms_y,'f',2));
 	update_log(QString("peak to peak x: ") + QString::number(peak_to_peak_x,'f',2));

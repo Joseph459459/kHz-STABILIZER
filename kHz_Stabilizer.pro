@@ -35,6 +35,7 @@ HEADERS += \
     camera_select.h \
     console.h \
     feedback_cam.h \
+    filt.h \
     imageviewer.h \
     kHz_Stabilizer.h \
     kHz_macros.h \
