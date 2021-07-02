@@ -49,7 +49,6 @@ public slots:
 	void stream();
 	void analyze_spectrum();
 	void correlate_cameras();
-	void find_driving_freqs();
 	void adjust_framerate();
 	void find_actuator_range();
 	void learn_system_response();

@@ -201,7 +201,7 @@ void learn_system_response() {
 
   Serial.readBytes((char*)&DACmax[1], 2);
 
-  generate_system_response_input(system_response_input_arr, DACmax[1], 20,300);
+  generate_system_response_input(system_response_input_arr, DACmax[1]);
 
   init_actuator();
 

@@ -3,7 +3,8 @@
 #include <math.h>
 #include <vector>
 
-#define fft_window 5000
+#define fft_window 10000
+#define sys_response_window 10000
 
 #define sampling_freq 1000.0
 #define PI 3.14159265358979323846
@@ -21,7 +22,6 @@
 #define SYNC_FLAG 254
 
 #define bit_depth 4096
-#define sys_response_window 10000
 
 
 typedef unsigned short uint16_t;
@@ -35,7 +35,7 @@ inline void generate_system_response_input(T* sys_response_input_arr, uint16_t D
         omega[i] = 2 * PI * (lf + (hf - lf) * i / (double) sys_response_window);
 
     for (int i = 0; i < sys_response_window; ++i)
-        sys_response_input_arr = DAC_max / 2 * sin(omega[i] * i / 1000) + DAC_max / 2;
+        sys_response_input_arr[i] = round(DAC_max / 3.0 * sin(omega[i] * i / 1000.0) + DAC_max / 2);
 
 }
 

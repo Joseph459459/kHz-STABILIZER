@@ -6,6 +6,8 @@ feedback_cam::feedback_cam(processing_thread* thread, QWidget* parent)
 
 	ui.setupUi(this);
 
+    ui.systemResponseButton->setDisabled(false);
+
 	ui.thresholdBox->setValue(0);
 	for (double i = 0; i < 256; ++i) {
 		table_8.append(qRgb(

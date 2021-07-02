@@ -294,17 +294,23 @@ void kHz_Stabilizer::update_fft_plot(float rms_x, float rms_y, float peak_to_pea
 
 void kHz_Stabilizer::update_tf_plot(QVector<QVector<double>> to_plot) {
 
-	hysteresis_curves[1]->setData(to_plot[0],
-		to_plot[1]);
 
-	hysteresis_curves[3]->setData(to_plot[3],
-		to_plot[4]);
+    QVector<double> keys(to_plot[0].size());
 
-	hysteresis_curves[0]->setData(to_plot[0],
-		to_plot[2]);
+    for (int i = 0; i < keys.size(); ++i)
+        keys[i] =  500 * i / keys.size(); ;
 
-	hysteresis_curves[2]->setData(to_plot[3],
-		to_plot[5]);
+    hysteresis_curves[1]->setData(keys,
+        to_plot[2]);
+
+    hysteresis_curves[3]->setData(keys,
+        to_plot[3]);
+
+    //hysteresis_curves[0]->setData(to_plot[0],
+    //	to_plot[2]);
+
+    //hysteresis_curves[2]->setData(to_plot[3],
+    //	to_plot[5]);
 
 
 	ui.tf_plot->rescaleAxes();

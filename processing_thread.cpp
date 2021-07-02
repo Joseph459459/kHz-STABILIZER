@@ -20,75 +20,6 @@ const char x_y[2] = {'x', 'y'};
 
 using namespace std::chrono;
 
-struct harmonics_filter {
-
-  harmonics_filter(int freq, int filter_halfwidth) {
-
-    fundamental = new Filter(BPF, n_taps, 1000, freq - filter_halfwidth,
-                             freq + filter_halfwidth);
-    third = new Filter(BPF, n_taps, 1000, freq + 2 * freq - filter_halfwidth,
-                       freq + 2 * freq + filter_halfwidth);
-    fifth = new Filter(BPF, n_taps, 1000, freq + 4 * freq - filter_halfwidth,
-                       freq + 4 * freq + filter_halfwidth);
-
-    // passband_ripple_compensate
-
-    std::vector<int> my_freqs = {freq, freq + 2 * freq, freq + 4 * freq};
-    std::vector<double> in(1500);
-    std::vector<double> out(1500);
-
-    for (int freq : my_freqs) {
-
-      Filter *temp = new Filter(BPF, n_taps, 1000, freq - filter_halfwidth,
-                                freq + filter_halfwidth);
-
-      if (temp->get_error_flag() == 0) {
-
-        for (int i = 0; i < 1500; ++i) {
-          in[i] = cos(2 * PI * freq / 1000 * i);
-          out[i] = temp->do_sample(in[i]);
-        }
-
-        auto gain = std::max_element(out.begin() + n_taps + 1, out.end());
-
-        gain_factors.push_back(*gain);
-
-        delete temp;
-
-      }
-
-      else
-        gain_factors.push_back(1);
-    }
-  }
-
-  ~harmonics_filter() {
-
-    delete fundamental;
-    delete third;
-    delete fifth;
-  }
-
-  void filter_vec(std::vector<double> &to_filter) {
-
-    double result;
-
-    for (int i = 0; i < to_filter.size(); ++i) {
-
-      result = fundamental->do_sample(to_filter[i]) / gain_factors[0];
-      result += third->do_sample(to_filter[i]) / gain_factors[1];
-      result += fifth->do_sample(to_filter[i]) / gain_factors[2];
-
-      to_filter[i] = result;
-    }
-  }
-
-  std::vector<double> gain_factors;
-  Filter *fundamental;
-  Filter *third;
-  Filter *fifth;
-};
-
 processing_thread::processing_thread(CDeviceInfo fb_info, QObject *parent)
     : QThread(parent), fb_cam(CTlFactory::GetInstance().CreateDevice(fb_info)),
       monitor_cam_enabled(false) {}
@@ -559,7 +490,6 @@ void processing_thread::analyze_spectrum() {
     fftw_destroy_plan(plan);
   }
 
-  find_driving_freqs();
 
   emit update_fft_plot(
       preciserms(centroids[0]), preciserms(centroids[1]),
@@ -698,9 +628,9 @@ void processing_thread::learn_system_response() {
                       QString(" Hz)"));
   } else {
 
-    system_response_input.resize(sys_response_window);
-    centroids[0].resize(sys_response_window);
-    centroids[1].resize(sys_response_window);
+    system_response_input.resize(sys_response_window + 1);
+    centroids[0].resize(sys_response_window + 1);
+    centroids[1].resize(sys_response_window + 1);
     centroids[0].fill(0);
     centroids[1].fill(0);
 
@@ -741,11 +671,11 @@ void processing_thread::learn_system_response() {
     float new_centroid[2];
     GrabResultPtr_t ptr;
 
-    fb_cam.MaxNumBuffer.SetValue(sys_response_window);
+    fb_cam.MaxNumBuffer.SetValue(sys_response_window/2);
     fb_cam.StartGrabbing();
 
     int i = 0;
-    while (i < sys_response_window + 1) {
+    while (i < sys_response_window+1) {
 
       if (fb_cam.RetrieveResult(2, ptr, Pylon::TimeoutHandling_Return)) {
 
@@ -798,10 +728,10 @@ void processing_thread::learn_system_response() {
                            driven_fft[i].data(), FFTW_R2HC, FFTW_ESTIMATE);
       fftw_execute(driven_plan);
 
-      QVector<double> mag(sys_response_window);
-      QVector<double> phase(sys_response_window);
+      QVector<double> mag(sys_response_window/2);
+      QVector<double> phase(sys_response_window/2);
 
-      for (int j = 0; j < sys_response_window; ++j) {
+      for (int j = 1; j < sys_response_window/2; ++j) {
 
         mag[j] = sqrt(driven_fft[i][j] * driven_fft[i][j] +
                       driven_fft[i][sys_response_window - j] *
@@ -811,13 +741,23 @@ void processing_thread::learn_system_response() {
                           input_fft[sys_response_window - j]);
 
         phase[j] =
-            atan2(driven_fft[i][j - sys_response_window], driven_fft[i][j]) -
-            atan2(input_fft[j - sys_response_window], input_fft[j]);
+            atan2(driven_fft[i][sys_response_window - j], driven_fft[i][j]) -
+            atan2(input_fft[sys_response_window - j], input_fft[j]);
       }
+
+      gsl_vector* filtered_mag = gsl_vector_alloc(mag.size());
+
+      for (int j = 0; j < mag.size(); ++j)
+        gsl_vector_set(filtered_mag,j,mag[j]);
+
+      gsl_filter_median_workspace* med_filt = gsl_filter_median_alloc(mag.size());
+
+
 
       to_plot.push_back(mag);
       to_plot.push_back(phase);
     }
+
 
     SRDEBUG.close();
 
