@@ -112,10 +112,10 @@ void test_loop_times() {
     if (Serial.read() != SYNC_FLAG) {
       loop_times[k] = 0;
       Serial.clear();
-    }
+    } 
 
     else {
-
+  
       Serial.readBytes((char*)shot_ptr, 4);
       analogWriteDAC1(0);
       analogWriteDAC0(0);
@@ -125,7 +125,7 @@ void test_loop_times() {
 
     shot_ptr++;
     digitalWriteFast(A14, LOW);
-    delay(1);
+    delayMicroseconds(200);
 
   }
 

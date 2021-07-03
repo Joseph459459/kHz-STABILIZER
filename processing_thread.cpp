@@ -117,19 +117,19 @@ void processing_thread::test_loop_times() {
   try{
   fb_cam.MaxNumBuffer.SetValue(5);
   fb_cam.GetStreamGrabberParams().MaxTransferSize.SetToMaximum();
-  fb_cam.GetStreamGrabberParams().NumMaxQueuedUrbs.SetValue(12);
-  //fb_cam.GetStreamGrabberParams().MaxBufferSize.SetValue(5300);
-
-  fb_cam.GetStreamGrabberParams().TransferLoopThreadPriority.SetValue(50);
-  //fb_cam.DeviceLinkThroughputLimitMode.SetValue(DeviceLinkThroughputLimitMode_On);
+  fb_cam.GetStreamGrabberParams().NumMaxQueuedUrbs.SetValue(164);
+  fb_cam.InternalGrabEngineThreadPriorityOverride.SetValue(true);
+  fb_cam.InternalGrabEngineThreadPriority.SetValue(99);
+  fb_cam.GetStreamGrabberParams().TransferLoopThreadPriority.SetValue(99);
   fb_cam.DeviceLinkThroughputLimit.SetToMaximum();
+  fb_cam.MaxNumBuffer.SetValue(1);
+
 }
   catch(GenICam::GenericException &e){
 
       qDebug() << e.GetDescription();
   }
 
-  fb_cam.MaxNumBuffer.SetValue(1);
   fb_cam.StartGrabbing();
 
   QSerialPort teensy;
@@ -139,7 +139,6 @@ void processing_thread::test_loop_times() {
       emit finished_analysis();
       return;
   }
-
 
   teensy.write(QByteArray(1, TEST_LOOP_TIME));
   teensy.waitForBytesWritten(100);
@@ -152,10 +151,6 @@ void processing_thread::test_loop_times() {
 
     if (fb_cam.RetrieveResult(1000, ptr, Pylon::TimeoutHandling_Return)) {
 
-     computer_loop_times[i] =
-        duration_cast<microseconds>(high_resolution_clock::now() - start)
-            .count();
-
       centroid(ptr, height, width, new_centroid, threshold);
 
       //ptr.Release();
@@ -164,6 +159,9 @@ void processing_thread::test_loop_times() {
       teensy.write((const char *)&i, 4);
       teensy.waitForBytesWritten(10);
 
+      computer_loop_times[i] =
+         duration_cast<microseconds>(high_resolution_clock::now() - start)
+             .count();
       //QThread::currentThread()->yieldCurrentThread();
 
     } else
@@ -208,6 +206,137 @@ void processing_thread::test_loop_times() {
   loop_tests.close();
 
   emit finished_analysis();
+}
+
+void processing_thread::test_loop_times_dual_cam(){
+
+    emit write_to_log(QString("Beginning Loop Time Test..."));
+
+    adjust_framerate();
+
+    if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
+      emit write_to_log(QString("Feedback camera cannot acquire at 1 kHz (") +
+                        QString::number(fb_cam.ResultingFrameRate()) +
+                        QString(" Hz)"));
+      emit finished_analysis();
+      return;
+    }
+    if (monitor_cam.ResultingFrameRate.GetValue() < 1000) {
+      emit write_to_log(QString("Feedback camera cannot acquire at 1 kHz (") +
+                        QString::number(monitor_cam.ResultingFrameRate()) +
+                        QString(" Hz)"));
+      emit finished_analysis();
+      return;
+    }
+    emit write_to_log(QString("Feedback cam sensor readout: ") + QString::number(fb_cam.SensorReadoutTime()));
+    emit write_to_log(QString("Monitor cam sensor readout: ") + QString::number(monitor_cam.SensorReadoutTime()));
+
+    if (fb_cam.TriggerMode.GetValue() != TriggerMode_On | monitor_cam.TriggerMode.GetValue() != TriggerMode_On) {
+      emit write_to_log(
+          QString("Camera must be hooked up to trigger source in order to time"));
+      return;
+    }
+
+
+    Camera_t* cams[2] = {&fb_cam,&monitor_cam};
+    int tltp[2] = {99,98};
+    int igetp[2] = {99,98};
+
+    for (int i = 0; i < 2; ++i){
+      try {
+        cams[i]->MaxNumBuffer.SetValue(2);
+        cams[i]->GetStreamGrabberParams().MaxTransferSize.SetToMaximum();
+        cams[i]->GetStreamGrabberParams().NumMaxQueuedUrbs.SetValue(164);
+        cams[i]->InternalGrabEngineThreadPriorityOverride.SetValue(true);
+        cams[i]->InternalGrabEngineThreadPriority.SetValue(99);
+        cams[i]->GetStreamGrabberParams().TransferLoopThreadPriority.SetValue(99);
+        cams[i]->DeviceLinkThroughputLimit.SetToMaximum();
+        cams[i]->MaxNumBuffer.SetValue(1);
+        cams[i]->StartGrabbing();
+      }
+        catch(GenICam::GenericException &e){
+            qDebug() << e.GetDescription();
+        }
+    }
+
+    QSerialPort teensy;
+
+    if (!open_port(teensy)){
+        emit write_to_log("Port not opened");
+        emit finished_analysis();
+        return;
+    }
+
+    teensy.write(QByteArray(1, TEST_LOOP_TIME));
+    teensy.waitForBytesWritten(100);
+
+    GrabResultPtr_t fb_ptr;
+    GrabResultPtr_t monitor_ptr;
+    const int height[2] = {(int)fb_cam.Height(),(int)monitor_cam.Height()};
+    const int width[2] = {(int)fb_cam.Width(),(int)monitor_cam.Width()};
+    float fb_centroid[2];
+    float monitor_centroid[2];
+
+    int missed = 0;
+
+    for (int i = 0; i < 5000; ++i) {
+
+      if (fb_cam.RetrieveResult(1000, fb_ptr, Pylon::TimeoutHandling_Return)) {
+        centroid_alt(fb_ptr, height[0], width[0], fb_centroid, threshold);
+        fb_ptr.Release();
+
+       }
+      if (monitor_cam.RetrieveResult(1000,monitor_ptr,Pylon::TimeoutHandling_Return)) {
+        centroid_alt(monitor_ptr,height[1],width[1],monitor_centroid,threshold);
+        monitor_ptr.Release();
+      }
+
+      teensy.write(QByteArray(1, SYNC_FLAG));
+      teensy.write((const char *)&i, 4);
+      teensy.waitForBytesWritten(10);
+
+    }
+
+    qDebug() << "done grabbing, missed" << missed;
+
+    fb_cam.StopGrabbing();
+    monitor_cam.StopGrabbing();
+
+    std::vector<int> computer_loop_times(5000);
+    std::vector<int> loop_times(5000);
+    loop_times.reserve(5200);
+    std::vector<int> shots_sent(5000);
+    shots_sent.reserve(5200);
+
+    receive_large_serial_buffer(teensy, loop_times, 128);
+    receive_large_serial_buffer(teensy, shots_sent, 128);
+
+    teensy.close();
+
+    qDebug() << "done reading serial...";
+
+    time_t start = time(0);
+    std::string date_time = ctime(&start);
+    std::string log_file("loop_tests/loop_test_");
+    log_file.append(date_time);
+    log_file.erase(log_file.end() - 1);
+    log_file.append(".txt");
+    std::replace(log_file.begin(), log_file.end(), ' ', '_');
+
+    std::ofstream loop_tests(log_file.c_str(), std::ofstream::out);
+
+    loop_tests << missed << std::endl;
+    for (int loop_time : loop_times)
+      loop_tests << loop_time << std::endl;
+    ;
+    for (int computer_loop_time : computer_loop_times)
+      loop_tests << computer_loop_time << std::endl;
+    for (int shot_sent : shots_sent)
+      loop_tests << shot_sent << std::endl;
+
+    loop_tests.close();
+
+    emit finished_analysis();
 }
 
 void processing_thread::stabilize() {
@@ -380,10 +509,11 @@ void processing_thread::stream() {
 
       msleep(update_period);
 
-      if (fb_cam.RetrieveResult(5000, fb_ptr, Pylon::TimeoutHandling_Return))
+      if (fb_cam.RetrieveResult(5, fb_ptr,
+                                Pylon::TimeoutHandling_Return))
         emit send_feedback_ptr(fb_ptr);
 
-      if (monitor_cam.RetrieveResult(5000, m_ptr,
+      if (monitor_cam.RetrieveResult(5, m_ptr,
                                      Pylon::TimeoutHandling_Return))
         emit send_monitor_ptr(m_ptr);
     }
@@ -878,7 +1008,7 @@ void processing_thread::run() {
     correlate_cameras();
     break;
   case TEST_LOOP_TIME:
-    test_loop_times();
+    test_loop_times_dual_cam();
     break;
   default:
     break;

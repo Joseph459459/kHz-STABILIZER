@@ -55,6 +55,7 @@ public slots:
 	void receive_large_serial_buffer(QSerialPort& teensy, std::vector<int>& buffer, int chunk_size);
 	void receive_cmd_line_data(QStringList cmd_str);
 	void test_loop_times();
+    void test_loop_times_dual_cam();
     bool open_port(QSerialPort& teensy);
 
 signals:
@@ -98,6 +99,27 @@ inline void centroid(GrabResultPtr_t ptr, const int height, const int width, flo
 
 	out[0] = sumx / (float)sum;
 	out[1] = sumy / (float)sum;
+
+}
+
+inline void centroid_alt(GrabResultPtr_t ptr, const int height, const int width, float out[], const int threshold) {
+
+    unsigned char* p = (unsigned char*)ptr->GetBuffer();
+
+    int sumx = 0;
+    int sumy = 0;
+    int sum = 0;
+
+    for (int i = 0; i < height*width; ++i, ++p){
+        if (*p < threshold){}
+        else{
+            sumx += (i % width) * *p;
+            sumy += (i/height) * *p;
+            sum += *p;
+        }
+    }
+    out[0] = sumx / (float)sum;
+    out[1] = sumy / (float)sum;
 
 }
 
