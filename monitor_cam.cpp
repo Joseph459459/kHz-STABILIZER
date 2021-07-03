@@ -20,10 +20,23 @@ monitor_cam::monitor_cam(processing_thread* thread, QWidget* parent)
 
 	connect(proc_thread, &processing_thread::finished_analysis, this, &monitor_cam::finished_analysis);
 	
-    ui.exposureBox->setRange(proc_thread->monitor_cam.ExposureTime.GetMin(), proc_thread->monitor_cam.ExposureTime.GetMax());
-    ui.exposureBox->setValue(proc_thread->monitor_cam.ExposureTime.GetValue());
-	proc_thread->monitor_cam.AcquisitionFrameRateEnable.SetValue(true);
-	updateimagesize(proc_thread->monitor_cam.Width.GetValue(), proc_thread->monitor_cam.Height.GetValue());
+    m_cam = &proc_thread->monitor_cam;
+
+    ui.exposureBox->setRange(m_cam->ExposureTime.GetMin(), m_cam->ExposureTime.GetMax());
+    ui.exposureBox->setValue(m_cam->ExposureTime.GetValue());
+    m_cam->AcquisitionFrameRateEnable.SetValue(true);
+    updateimagesize(m_cam->Width.GetValue(), m_cam->Height.GetValue());
+
+    height_inc = m_cam->Height.GetInc();
+    width_inc = m_cam->Width.GetInc();
+    max_height = m_cam->Height.GetMax();
+    max_width = m_cam->Width.GetMax();
+    min_height = m_cam->Height.GetMin();
+    min_width = m_cam->Width.GetMin();
+    min_offset_x = m_cam->OffsetX.GetMin();
+    min_offset_y = m_cam->OffsetY.GetMin();
+    offset_inc_x = m_cam->OffsetX.GetInc();
+    offset_inc_y = m_cam->OffsetY.GetInc();
 
 	this->setAttribute(Qt::WA_DeleteOnClose);
 }
@@ -35,7 +48,7 @@ monitor_cam::~monitor_cam()
 		QCoreApplication::processEvents();
 	};
 
-	proc_thread->monitor_cam.Close();
+    m_cam->Close();
 }
 
 void monitor_cam::updateimage(GrabResultPtr_t ptr) {
@@ -61,62 +74,64 @@ void monitor_cam::updateimage(GrabResultPtr_t ptr) {
 
 void monitor_cam::on_findCentroidButton_clicked() {
 	
-	proc_thread->blockSignals(true);
-	proc_thread->acquiring = false;
+    proc_thread->blockSignals(true);
+    proc_thread->acquiring = false;
 
-	while (!proc_thread->isFinished()) {
-		QCoreApplication::processEvents();
-	};
+    while (!proc_thread->isFinished()) {
+        QCoreApplication::processEvents();
+    };
 
-	GrabResultPtr_t ptr;
+    GrabResultPtr_t ptr;
 
-	proc_thread->monitor_cam.OffsetX.SetValue(0);
-	proc_thread->monitor_cam.OffsetY.SetValue(0);
+    m_cam->OffsetX.SetValue(min_offset_x);
+    m_cam->OffsetY.SetValue(min_offset_y);
 
-	proc_thread->monitor_cam.Height.SetValue(proc_thread->monitor_cam.Height.GetMax());
-	proc_thread->monitor_cam.Width.SetValue(proc_thread->monitor_cam.Width.GetMax());
+    m_cam->Height.SetValue(max_height);
+    m_cam->Width.SetValue(max_width);
 
 
     for (int trycount = 0; trycount < 7; trycount++){
 
-        if (!proc_thread->monitor_cam.GrabOne(300, ptr)) {
+        if (!m_cam->GrabOne(300, ptr)) {
             emit write_to_log(QString("Timeout while searching for centroid."));
         }
         else {
 
             std::array<double, 6> out = allparams(ptr, ui.thresholdBox->value());
 
-            int width = round(out[2]/4)*4 + 16;
-            int height = round(out[3]/2)*2 + 16;
+            int width = round(out[2]/width_inc)*width_inc + 16;
+            int height = round(out[3]/width_inc)*width_inc + 16;
 
             if (!std::isnan(out[2]) && !std::isnan(out[3]) && !std::isnan(out[0]) && !std::isnan(out[1]) &&
-                width < proc_thread->monitor_cam.WidthMax() && out[2] > 2 &&
-                height < proc_thread->monitor_cam.HeightMax() && out[3] > 2 )
+                width < max_width && out[2] > 2 &&
+                height < max_height && out[3] > 2 )
             {
 
-                proc_thread->monitor_cam.Height.SetValue(height);
-                proc_thread->monitor_cam.Width.SetValue(width);
+                m_cam->Height.SetValue(height);
+                m_cam->Width.SetValue(width);
 
                 updateimagesize(width, height);
 
-                int xplus =  (((int)out[0] + width / 2)/2)*2;
-                int xminus = (((int)out[0] - width / 2)/2)*2;
-                int yplus = (((int)out[1] + height / 2)/2)*2;
-                int yminus = (((int)out[1] - height / 2)/2)*2;
 
-                if (xminus < 0)
-                    proc_thread->monitor_cam.OffsetX.SetValue(0);
-                else if (xplus > proc_thread->monitor_cam.WidthMax.GetValue())
-                    proc_thread->monitor_cam.OffsetX.SetValue(proc_thread->monitor_cam.WidthMax.GetValue() - width);
-                else
-                    proc_thread->monitor_cam.OffsetX.SetValue(xminus);
+                int x_plus =  (((int)out[0] + width / 2)/offset_inc_x)*offset_inc_x;
+                int x_minus = (((int)out[0] - width / 2)/offset_inc_x)*offset_inc_x;
 
-                if (yminus < 0)
-                    proc_thread->monitor_cam.OffsetY.SetValue(0);
-                else if (yplus > proc_thread->monitor_cam.HeightMax.GetValue())
-                    proc_thread->monitor_cam.OffsetY.SetValue(proc_thread->monitor_cam.HeightMax.GetValue() - height);
+                int y_plus = (((int)out[1] + height / 2)/offset_inc_y)*offset_inc_y;
+                int y_minus = (((int)out[1] - height / 2)/offset_inc_y)*offset_inc_y;
+
+                if (x_minus < 0)
+                    m_cam->OffsetX.SetValue(min_offset_x);
+                else if (x_plus > max_width)
+                    m_cam->OffsetX.SetValue(max_width - width);
                 else
-                    proc_thread->monitor_cam.OffsetY.SetValue(yminus);
+                    m_cam->OffsetX.SetValue(x_minus);
+
+                if (y_minus < 0)
+                    m_cam->OffsetY.SetValue(min_offset_y);
+                else if (y_plus > max_height)
+                    m_cam->OffsetY.SetValue(max_height - height);
+                else
+                    m_cam->OffsetY.SetValue(y_minus);
 
                 proc_thread->blockSignals(false);
                 proc_thread->start();
@@ -127,7 +142,7 @@ void monitor_cam::on_findCentroidButton_clicked() {
     }
 
 
-    updateimagesize(proc_thread->monitor_cam.WidthMax(), proc_thread->monitor_cam.HeightMax());
+    updateimagesize(max_width, max_height);
     emit write_to_log("Could not find Centroid. Make sure the sensor is clear and there is a threshold.");
     proc_thread->blockSignals(false);
     proc_thread->start();
@@ -143,74 +158,72 @@ void monitor_cam::updateimagesize(int width, int height) {
 
 void monitor_cam::on_zoomInButton_clicked() {
 
-	proc_thread->blockSignals(true);
-	proc_thread->acquiring = false;
+    proc_thread->blockSignals(true);
+    proc_thread->acquiring = false;
 
-	while (!proc_thread->isFinished()) {
-		QCoreApplication::processEvents();
-	};
+    while (!proc_thread->isFinished()) {
+        QCoreApplication::processEvents();
+    };
 
-	int curr_width = proc_thread->monitor_cam.Width.GetValue();
-	int curr_height = proc_thread->monitor_cam.Height.GetValue();
+    int curr_width = m_cam->Width.GetValue();
+    int curr_height = m_cam->Height.GetValue();
 
+    if (curr_width - std::max(width_inc,offset_inc_x) > min_width) {
+        m_cam->Width.SetValue(curr_width - std::max(width_inc,offset_inc_x));
+        m_cam->OffsetX.SetValue(m_cam->OffsetX.GetValue() + std::max(width_inc,offset_inc_x));
+        updateimagesize(curr_width - std::max(width_inc,offset_inc_x), curr_width);
 
-	if (curr_width - 4 > 4) {
-		proc_thread->monitor_cam.Width.SetValue(curr_width - 4);
-		proc_thread->monitor_cam.OffsetX.SetValue(proc_thread->monitor_cam.OffsetX.GetValue() + 2);
-		updateimagesize(curr_width - 4, curr_height);
+    }
 
-	}
+    if (curr_height - std::max(height_inc,offset_inc_y) > min_height) {
+        m_cam->Height.SetValue(curr_height - std::max(height_inc,offset_inc_y));
+        m_cam->OffsetY.SetValue(m_cam->OffsetY.GetValue() + std::max(height_inc,offset_inc_y));
+        updateimagesize(m_cam->Width.GetValue(),curr_height - std::max(height_inc,offset_inc_y));
+    }
 
-	if (curr_height - 4 > 4) {
-		proc_thread->monitor_cam.Height.SetValue(curr_height - 4);
-		proc_thread->monitor_cam.OffsetY.SetValue(proc_thread->monitor_cam.OffsetY.GetValue() + 2);
-		updateimagesize(proc_thread->monitor_cam.Width.GetValue(),curr_height - 4);
-	}
-
-	proc_thread->blockSignals(false);
-	proc_thread->start();
-
+    proc_thread->blockSignals(false);
+    proc_thread->start();
 }
 
 void monitor_cam::on_zoomOutButton_clicked() {
 	
-	proc_thread->blockSignals(true);
-	proc_thread->acquiring = false;
-	while (!proc_thread->isFinished()) {
-		QCoreApplication::processEvents();
-	};
+    proc_thread->blockSignals(true);
+    proc_thread->acquiring = false;
+    while (!proc_thread->isFinished()) {
+        QCoreApplication::processEvents();
+    };
 
-	int curr_width = proc_thread->monitor_cam.Width.GetValue();
-	int curr_height = proc_thread->monitor_cam.Height.GetValue();
+    int curr_width = m_cam->Width.GetValue();
+    int curr_height = m_cam->Height.GetValue();
 
-	if ((curr_width + 2 < proc_thread->monitor_cam.Width.GetMax()) && (proc_thread->monitor_cam.OffsetX.GetValue() - 2 > 0)) {
-		proc_thread->monitor_cam.OffsetX.SetValue(proc_thread->monitor_cam.OffsetX.GetValue() - 2);
-		proc_thread->monitor_cam.Width.SetValue(curr_width + 4);
-		updateimagesize(curr_width + 4, curr_height);
-	}
-	
-	if ((curr_height + 2 < proc_thread->monitor_cam.Height.GetMax()) && (proc_thread->monitor_cam.OffsetY.GetValue() - 2 > 0)) {
-		proc_thread->monitor_cam.OffsetY.SetValue(proc_thread->monitor_cam.OffsetY.GetValue() - 2);
-		proc_thread->monitor_cam.Height.SetValue(curr_height + 4);
-		updateimagesize(proc_thread->monitor_cam.Width.GetValue(), curr_height + 4);
-	}
-	proc_thread->blockSignals(false);
-	proc_thread->start();
+    if ((curr_width + width_inc < max_width) && (m_cam->OffsetX.GetValue() - offset_inc_x > min_offset_x)) {
+        m_cam->OffsetX.SetValue(m_cam->OffsetX.GetValue() - offset_inc_x);
+        m_cam->Width.SetValue(curr_width + width_inc);
+        updateimagesize(curr_width + width_inc, curr_height);
+    }
+
+    if ((curr_height + height_inc < max_height) && (m_cam->OffsetY.GetValue() - offset_inc_y > 0)) {
+        m_cam->OffsetY.SetValue(m_cam->OffsetY.GetValue() - offset_inc_y);
+        m_cam->Height.SetValue(curr_height + height_inc);
+        updateimagesize(m_cam->Width.GetValue(), curr_height + height_inc);
+    }
+    proc_thread->blockSignals(false);
+    proc_thread->start();
 
 }
 
 void monitor_cam::on_resetButton_clicked() {
 
-	safe_thread_close();
+    safe_thread_close();
 
-	proc_thread->monitor_cam.OffsetX.SetValue(0);
-	proc_thread->monitor_cam.OffsetY.SetValue(0);
-	proc_thread->monitor_cam.Width.SetValue(proc_thread->monitor_cam.WidthMax());
-	proc_thread->monitor_cam.Height.SetValue(proc_thread->monitor_cam.HeightMax());
+    m_cam->OffsetX.SetValue(min_offset_x);
+    m_cam->OffsetY.SetValue(min_offset_y);
+    m_cam->Width.SetValue(max_width);
+    m_cam->Height.SetValue(max_height);
 
-	updateimagesize(proc_thread->monitor_cam.Width.GetValue(), proc_thread->monitor_cam.Height.GetValue());
+    updateimagesize(max_width, max_height);
 
-	proc_thread->start();
+    proc_thread->start();
 
 }
 
@@ -221,46 +234,45 @@ void monitor_cam::finished_analysis()
 
 void monitor_cam::on_exposureBox_valueChanged(int i) {
 
-    proc_thread->monitor_cam.ExposureTime.SetValue(i);
+    m_cam->ExposureTime.SetValue(i);
 	proc_thread->adjust_framerate();
 }
 
 void monitor_cam::on_upButton_clicked() {
-	if (proc_thread->monitor_cam.OffsetY() - 4 > 0 )
-		proc_thread->monitor_cam.OffsetY.SetValue(proc_thread->monitor_cam.OffsetY() - 4);
+    if (m_cam->OffsetY() - offset_inc_y > min_offset_y )
+        m_cam->OffsetY.SetValue(m_cam->OffsetY() - offset_inc_y);
 }
 
 void monitor_cam::on_downButton_clicked() {
-	if (proc_thread->monitor_cam.OffsetY() + proc_thread->monitor_cam.Height() + 4 < proc_thread->monitor_cam.HeightMax())
-		proc_thread->monitor_cam.OffsetY.SetValue(proc_thread->monitor_cam.OffsetY() + 4);
+    if (m_cam->OffsetY() + m_cam->Height() + offset_inc_y < max_height)
+        m_cam->OffsetY.SetValue(m_cam->OffsetY() + offset_inc_y);
 }
 
 void monitor_cam::on_rightButton_clicked() {
-	if (proc_thread->monitor_cam.OffsetX() + proc_thread->monitor_cam.Width() + 4 < proc_thread->monitor_cam.WidthMax())
-		proc_thread->monitor_cam.OffsetX.SetValue(proc_thread->monitor_cam.OffsetX() + 4);
-
+    if (m_cam->OffsetX() + m_cam->Width() + offset_inc_x < max_width)
+        m_cam->OffsetX.SetValue(m_cam->OffsetX() + offset_inc_x);
 }
 
 void monitor_cam::on_leftButton_clicked() {
-	if (proc_thread->monitor_cam.OffsetX() - 4 > 0)
-		proc_thread->monitor_cam.OffsetX.SetValue(proc_thread->monitor_cam.OffsetX() - 4);
-
+    if (m_cam->OffsetX() - offset_inc_x > min_offset_x)
+        m_cam->OffsetX.SetValue(m_cam->OffsetX() - offset_inc_x);
 }
+
 
 void monitor_cam::on_triggerButton_toggled(bool j) {
 
 	safe_thread_close();
 
 	if (j) {
-		proc_thread->monitor_cam.AcquisitionFrameRateEnable.SetValue(false);
-		proc_thread->monitor_cam.TriggerMode.SetValue(TriggerMode_On);
-		proc_thread->monitor_cam.TriggerSource.SetValue(TriggerSourceEnums::TriggerSource_Line1);
-		proc_thread->monitor_cam.TriggerSelector.SetValue(TriggerSelector_FrameStart);
-		proc_thread->monitor_cam.TriggerActivation.SetValue(TriggerActivation_RisingEdge);
+        m_cam->AcquisitionFrameRateEnable.SetValue(false);
+        m_cam->TriggerMode.SetValue(TriggerMode_On);
+        m_cam->TriggerSource.SetValue(TriggerSourceEnums::TriggerSource_Line1);
+        m_cam->TriggerSelector.SetValue(TriggerSelector_FrameStart);
+        m_cam->TriggerActivation.SetValue(TriggerActivation_RisingEdge);
 	}
 	else {
-		proc_thread->monitor_cam.TriggerMode.SetValue(TriggerMode_Off);
-		proc_thread->monitor_cam.AcquisitionFrameRateEnable.SetValue(true);
+        m_cam->TriggerMode.SetValue(TriggerMode_Off);
+        m_cam->AcquisitionFrameRateEnable.SetValue(true);
 		proc_thread->adjust_framerate();
 	}
 

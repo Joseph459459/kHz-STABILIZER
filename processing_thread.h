@@ -55,7 +55,7 @@ public slots:
 	void receive_large_serial_buffer(QSerialPort& teensy, std::vector<int>& buffer, int chunk_size);
 	void receive_cmd_line_data(QStringList cmd_str);
 	void test_loop_times();
-	void open_port(QSerialPort& teensy);
+    bool open_port(QSerialPort& teensy);
 
 signals:
 	void write_to_log(QString q);

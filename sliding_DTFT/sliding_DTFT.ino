@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <ADC.h>
 #include <vector>
-#include "/home/joseph/kHz_Stabilizer/kHz_macros.h"
+#include "/home/loasis/kHz-STABILIZER/kHz_macros.h"
 
 ADC* adc = new ADC();
 
@@ -201,7 +201,7 @@ void learn_system_response() {
 
   Serial.readBytes((char*)&DACmax[1], 2);
 
-  generate_system_response_input(system_response_input_arr, DACmax[1]);
+  generate_system_response_input(system_response_input_arr, DACmax[1],20,300);
 
   init_actuator();
 

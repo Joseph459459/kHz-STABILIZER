@@ -113,13 +113,33 @@ void processing_thread::test_loop_times() {
   const int width = fb_cam.Width.GetValue();
 
   std::vector<int> computer_loop_times(5000);
-  fb_cam.GevSCPSPacketSize = 1000;
-  fb_cam.MaxNumBuffer = 5;
+
+  try{
+  fb_cam.MaxNumBuffer.SetValue(5);
+  fb_cam.GetStreamGrabberParams().MaxTransferSize.SetToMaximum();
+  fb_cam.GetStreamGrabberParams().NumMaxQueuedUrbs.SetValue(12);
+  //fb_cam.GetStreamGrabberParams().MaxBufferSize.SetValue(5300);
+
+  fb_cam.GetStreamGrabberParams().TransferLoopThreadPriority.SetValue(50);
+  //fb_cam.DeviceLinkThroughputLimitMode.SetValue(DeviceLinkThroughputLimitMode_On);
+  fb_cam.DeviceLinkThroughputLimit.SetToMaximum();
+}
+  catch(GenICam::GenericException &e){
+
+      qDebug() << e.GetDescription();
+  }
+
+  fb_cam.MaxNumBuffer.SetValue(1);
   fb_cam.StartGrabbing();
 
   QSerialPort teensy;
 
-  open_port(teensy);
+  if (!open_port(teensy)){
+      emit write_to_log("Port not opened");
+      emit finished_analysis();
+      return;
+  }
+
 
   teensy.write(QByteArray(1, TEST_LOOP_TIME));
   teensy.waitForBytesWritten(100);
@@ -128,22 +148,26 @@ void processing_thread::test_loop_times() {
 
   for (int i = 0; i < 5000; ++i) {
 
+  auto start = high_resolution_clock::now();
+
     if (fb_cam.RetrieveResult(1000, ptr, Pylon::TimeoutHandling_Return)) {
-      auto start = high_resolution_clock::now();
+
+     computer_loop_times[i] =
+        duration_cast<microseconds>(high_resolution_clock::now() - start)
+            .count();
 
       centroid(ptr, height, width, new_centroid, threshold);
+
+      //ptr.Release();
 
       teensy.write(QByteArray(1, SYNC_FLAG));
       teensy.write((const char *)&i, 4);
       teensy.waitForBytesWritten(10);
 
-      computer_loop_times[i] =
-          duration_cast<microseconds>(high_resolution_clock::now() - start)
-              .count();
+      //QThread::currentThread()->yieldCurrentThread();
 
     } else
       ++missed;
-    qDebug() << missed;
   }
 
   qDebug() << "done grabbing, missed" << missed;
@@ -346,8 +370,8 @@ void processing_thread::stream() {
     fb_cam.MaxNumBuffer = 5;
     monitor_cam.MaxNumBuffer = 5;
 
-    fb_cam.StartGrabbing();
-    monitor_cam.StartGrabbing();
+    fb_cam.StartGrabbing(GrabStrategy_LatestImageOnly);
+    monitor_cam.StartGrabbing(GrabStrategy_LatestImageOnly);
 
     GrabResultPtr_t fb_ptr;
     GrabResultPtr_t m_ptr;
@@ -506,7 +530,7 @@ void processing_thread::analyze_spectrum() {
  * This functions smooths the noise spectrum and finds the minima in three
  * regions, which are the driving frequencies */
 
-void processing_thread::open_port(QSerialPort &teensy) {
+bool processing_thread::open_port(QSerialPort &teensy) {
 
   QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
 
@@ -521,7 +545,7 @@ void processing_thread::open_port(QSerialPort &teensy) {
 
   if (!teensy.open(QIODevice::ReadWrite)) {
     emit write_to_log(QString("USB port not able to open."));
-    return;
+    return false;
   };
 
   bool j = true;
@@ -534,9 +558,10 @@ void processing_thread::open_port(QSerialPort &teensy) {
 
   if (!j) {
     emit write_to_log(QString("Error configuring USB connection."));
-    return;
   }
   emit write_to_log(QString("Port opened and configured"));
+
+  return j;
 }
 
 void processing_thread::find_actuator_range() {

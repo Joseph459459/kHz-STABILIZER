@@ -15,8 +15,20 @@ public:
 	QImage* qColored;
 	QVector<QRgb> table_8;
 	processing_thread* proc_thread;
+    Camera_t* m_cam;
 	monitor_cam(processing_thread* thread, QWidget *parent = Q_NULLPTR);
 	~monitor_cam();
+
+    int height_inc;
+    int width_inc;
+    int min_width;
+    int min_height;
+    int max_height;
+    int max_width;
+    int min_offset_x;
+    int min_offset_y;
+    int offset_inc_x;
+    int offset_inc_y;
 
 public slots:
 

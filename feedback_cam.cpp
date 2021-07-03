@@ -6,8 +6,6 @@ feedback_cam::feedback_cam(processing_thread* thread, QWidget* parent)
 
 	ui.setupUi(this);
 
-    ui.systemResponseButton->setDisabled(false);
-
 	ui.thresholdBox->setValue(0);
 	for (double i = 0; i < 256; ++i) {
 		table_8.append(qRgb(
@@ -31,7 +29,7 @@ feedback_cam::feedback_cam(processing_thread* thread, QWidget* parent)
     ui.exposureBox->setRange(m_cam->ExposureTime.GetMin(), m_cam->ExposureTime.GetMax());
     ui.exposureBox->setValue(m_cam->ExposureTime.GetValue());
     m_cam->AcquisitionFrameRateEnable.SetValue(true);
-    updateimagesize(m_cam->Width(), m_cam->Height());
+    updateimagesize(m_cam->Width(), m_cam->Height()); 
 
     height_inc = m_cam->Height.GetInc();
     width_inc = m_cam->Width.GetInc();
@@ -300,6 +298,7 @@ void feedback_cam::on_loopTimeButton_clicked() {
 	this->setDisabled(true);
     proc_thread->run_plan = TEST_LOOP_TIME;
     proc_thread->start(QThread::TimeCriticalPriority);
+    //QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
     //proc_thread->test_loop_times();
 }
 
