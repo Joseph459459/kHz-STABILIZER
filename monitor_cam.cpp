@@ -20,8 +20,8 @@ monitor_cam::monitor_cam(processing_thread* thread, QWidget* parent)
 
 	connect(proc_thread, &processing_thread::finished_analysis, this, &monitor_cam::finished_analysis);
 	
-	ui.exposureBox->setRange(proc_thread->monitor_cam.ExposureTimeAbs.GetMin(), proc_thread->monitor_cam.ExposureTimeAbs.GetMax());
-	ui.exposureBox->setValue(proc_thread->monitor_cam.ExposureTimeAbs.GetValue());
+    ui.exposureBox->setRange(proc_thread->monitor_cam.ExposureTime.GetMin(), proc_thread->monitor_cam.ExposureTime.GetMax());
+    ui.exposureBox->setValue(proc_thread->monitor_cam.ExposureTime.GetValue());
 	proc_thread->monitor_cam.AcquisitionFrameRateEnable.SetValue(true);
 	updateimagesize(proc_thread->monitor_cam.Width.GetValue(), proc_thread->monitor_cam.Height.GetValue());
 
@@ -221,7 +221,7 @@ void monitor_cam::finished_analysis()
 
 void monitor_cam::on_exposureBox_valueChanged(int i) {
 
-	proc_thread->monitor_cam.ExposureTimeAbs.SetValue(i);
+    proc_thread->monitor_cam.ExposureTime.SetValue(i);
 	proc_thread->adjust_framerate();
 }
 

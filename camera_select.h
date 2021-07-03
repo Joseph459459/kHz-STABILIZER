@@ -12,7 +12,7 @@ using namespace Basler_UniversalCameraParams;
 using namespace Pylon;
 
 #include <QWidget>
-#include "ui_cameraselect.h"
+#include "ui_camera_select.h"
 
 class camera_select : public QWidget
 {

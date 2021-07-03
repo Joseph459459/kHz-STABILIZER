@@ -17,7 +17,7 @@ camera_select::camera_select(QWidget *parent)
 
     system("echo Increasing maximum packet size...");
     system("echo");
-    system("sudo ifconfig enp0s31f6 mtu 8000");
+    //system("sudo ifconfig enp0s31f6 mtu 8000");
     system("echo DONE");
 
     system("echo Increasing process priorities...");
@@ -32,7 +32,7 @@ camera_select::camera_select(QWidget *parent)
 
     system("echo Assigning camera and microcontroller interrupts to core 2...");
     system("echo");
-    system("sudo tuna --irqs=132,155 --cpus=3 --move");
+    //system("sudo tuna --irqs=132,155 --cpus=3 --move");
     system("echo DONE");
 
 

@@ -139,7 +139,7 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 	FC->show();
 
     proc_thread.run_plan = STREAM;
-    proc_thread.start(QThread::TimeCriticalPriority);
+    proc_thread.start();
 
 }
 

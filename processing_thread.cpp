@@ -36,22 +36,22 @@ void processing_thread::adjust_framerate() {
 
   // This sets the acquisition frame rate to the maximum allowed with given
   // settings
-  fb_cam.AcquisitionFrameRateAbs.SetValue(100000.0);
+  fb_cam.AcquisitionFrameRate.SetValue(100000.0);
 
-  if (fb_cam.ResultingFrameRateAbs() > 1000)
-    fb_cam.AcquisitionFrameRateAbs.SetValue(1000);
+  if (fb_cam.ResultingFrameRate() > 1000)
+    fb_cam.AcquisitionFrameRate.SetValue(1000);
   else
-    fb_cam.AcquisitionFrameRateAbs.SetValue(fb_cam.ResultingFrameRateAbs());
+    fb_cam.AcquisitionFrameRate.SetValue(fb_cam.ResultingFrameRate());
 
   if (monitor_cam_enabled) {
 
-    monitor_cam.AcquisitionFrameRateAbs.SetValue(100000.0);
+    monitor_cam.AcquisitionFrameRate.SetValue(100000.0);
 
-    if (monitor_cam.ResultingFrameRateAbs() > 1000)
-      monitor_cam.AcquisitionFrameRateAbs.SetValue(1000);
+    if (monitor_cam.ResultingFrameRate() > 1000)
+      monitor_cam.AcquisitionFrameRate.SetValue(1000);
     else
-      monitor_cam.AcquisitionFrameRateAbs.SetValue(
-          monitor_cam.ResultingFrameRateAbs());
+      monitor_cam.AcquisitionFrameRate.SetValue(
+          monitor_cam.ResultingFrameRate());
   }
 }
 
@@ -90,10 +90,10 @@ void processing_thread::test_loop_times() {
 
   adjust_framerate();
 
-  if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
+  if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
 
     emit write_to_log(QString("Camera cannot acquire at 1 kHz (") +
-                      QString::number(fb_cam.ResultingFrameRateAbs()) +
+                      QString::number(fb_cam.ResultingFrameRate()) +
                       QString(" Hz)"));
     emit finished_analysis();
     return;
@@ -196,10 +196,10 @@ void processing_thread::stabilize() {
 
   emit write_to_log(QString("Beginning Stabilization..."));
 
-  if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
+  if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
 
     emit write_to_log(QString("Camera cannot acquire at 1 kHz (") +
-                      QString::number(fb_cam.ResultingFrameRateAbs()) +
+                      QString::number(fb_cam.ResultingFrameRate()) +
                       QString(" Hz)"));
     emit finished_analysis();
     return;
@@ -370,8 +370,7 @@ void processing_thread::stream() {
 
   else {
 
-    fb_cam.MaxNumBuffer = 5;
-    fb_cam.StartGrabbing();
+    fb_cam.StartGrabbing(GrabStrategy_LatestImageOnly);
 
     while (acquiring) {
 
@@ -395,10 +394,10 @@ void processing_thread::analyze_spectrum() {
 
   emit write_to_log(QString("Beginning Noise Profiling..."));
 
-  if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
+  if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
 
     emit write_to_log(QString("Camera cannot acquire at 1 kHz (") +
-                      QString::number(fb_cam.ResultingFrameRateAbs()) +
+                      QString::number(fb_cam.ResultingFrameRate()) +
                       QString(" Hz)"));
     emit finished_analysis();
     return;
@@ -622,9 +621,9 @@ void processing_thread::learn_system_response() {
 
   adjust_framerate();
 
-  if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
+  if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
     emit write_to_log(QString("Camera cannot acquire at 1 kHz") +
-                      QString::number(fb_cam.ResultingFrameRateAbs()) +
+                      QString::number(fb_cam.ResultingFrameRate()) +
                       QString(" Hz)"));
   } else {
 
@@ -776,14 +775,14 @@ void processing_thread::correlate_cameras() {
 
   adjust_framerate();
 
-  if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
+  if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
     emit write_to_log(QString("feedback camera cannot acquire at 1 kHz (") +
-                      QString::number(fb_cam.ResultingFrameRateAbs()) +
+                      QString::number(fb_cam.ResultingFrameRate()) +
                       QString(" Hz)"));
     return;
-  } else if (monitor_cam.ResultingFrameRateAbs.GetValue() < 1000) {
+  } else if (monitor_cam.ResultingFrameRate.GetValue() < 1000) {
     emit write_to_log(QString("monitor camera cannot acquire at 1 kHz (") +
-                      QString::number(monitor_cam.ResultingFrameRateAbs()) +
+                      QString::number(monitor_cam.ResultingFrameRate()) +
                       QString(" Hz)"));
     return;
   } else if (fb_cam.TriggerMode.GetValue() !=
