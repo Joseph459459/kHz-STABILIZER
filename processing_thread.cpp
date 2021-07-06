@@ -145,6 +145,26 @@ void processing_thread::receive_large_serial_buffer(QSerialPort &teensy,
   }
 }
 
+void processing_thread::prep_cam(Camera_t* cam){
+
+    try{
+    cam->MaxNumBuffer.SetValue(5);
+    cam->GetStreamGrabberParams().MaxTransferSize.SetToMaximum();
+    cam->GetStreamGrabberParams().NumMaxQueuedUrbs.SetValue(164);
+    cam->InternalGrabEngineThreadPriorityOverride.SetValue(true);
+    cam->InternalGrabEngineThreadPriority.SetValue(99);
+    cam->GetStreamGrabberParams().TransferLoopThreadPriority.SetValue(99);
+    cam->DeviceLinkThroughputLimit.SetToMaximum();
+    cam->MaxNumBuffer.SetValue(1);
+
+  }
+    catch(GenICam::GenericException &e){
+
+        qDebug() << e.GetDescription();
+    }
+
+}
+
 void processing_thread::test_loop_times() {
 
   emit write_to_log(QString("Beginning Loop Time Test..."));
@@ -175,21 +195,7 @@ void processing_thread::test_loop_times() {
 
   std::vector<int> computer_loop_times(5000);
 
-  try{
-  fb_cam.MaxNumBuffer.SetValue(5);
-  fb_cam.GetStreamGrabberParams().MaxTransferSize.SetToMaximum();
-  fb_cam.GetStreamGrabberParams().NumMaxQueuedUrbs.SetValue(164);
-  fb_cam.InternalGrabEngineThreadPriorityOverride.SetValue(true);
-  fb_cam.InternalGrabEngineThreadPriority.SetValue(99);
-  fb_cam.GetStreamGrabberParams().TransferLoopThreadPriority.SetValue(99);
-  fb_cam.DeviceLinkThroughputLimit.SetToMaximum();
-  fb_cam.MaxNumBuffer.SetValue(1);
-
-}
-  catch(GenICam::GenericException &e){
-
-      qDebug() << e.GetDescription();
-  }
+  prep_cam(&fb_cam);
 
   fb_cam.StartGrabbing();
 
@@ -298,27 +304,8 @@ void processing_thread::test_loop_times_dual_cam(){
       return;
     }
 
-
-    Camera_t* cams[2] = {&fb_cam,&monitor_cam};
-    int tltp[2] = {99,98};
-    int igetp[2] = {99,98};
-
-    for (int i = 0; i < 2; ++i){
-      try {
-        cams[i]->MaxNumBuffer.SetValue(2);
-        cams[i]->GetStreamGrabberParams().MaxTransferSize.SetToMaximum();
-        cams[i]->GetStreamGrabberParams().NumMaxQueuedUrbs.SetValue(164);
-        cams[i]->InternalGrabEngineThreadPriorityOverride.SetValue(true);
-        cams[i]->InternalGrabEngineThreadPriority.SetValue(99);
-        cams[i]->GetStreamGrabberParams().TransferLoopThreadPriority.SetValue(99);
-        cams[i]->DeviceLinkThroughputLimit.SetToMaximum();
-        cams[i]->MaxNumBuffer.SetValue(1);
-        cams[i]->StartGrabbing();
-      }
-        catch(GenICam::GenericException &e){
-            qDebug() << e.GetDescription();
-        }
-    }
+    prep_cam(&fb_cam);
+    prep_cam(&monitor_cam);
 
     QSerialPort teensy;
 
@@ -960,12 +947,26 @@ void processing_thread::learn_total_system_response() {
             atan2(input_fft[tot_sys_response_window - j], input_fft[j]);
       }
 
-      gsl_vector* filtered_mag = gsl_vector_alloc(mag.size());
+      QVector<QVector<double>*> mag_phase = {&mag, &phase};
+\
+      for (QVector<double> *vec : mag_phase){
 
-      for (int j = 0; j < mag.size(); ++j)
-        gsl_vector_set(filtered_mag,j,mag[j]);
+          gsl_vector* filtered = gsl_vector_alloc(vec->size());
 
-      gsl_filter_median_workspace* med_filt = gsl_filter_median_alloc(mag.size());
+          for (int j = 0; j < vec->size(); ++j)
+            gsl_vector_set(filtered,j,vec->at(j));
+
+          gsl_filter_median_workspace* med_filt = gsl_filter_median_alloc(10);
+
+          gsl_filter_median(GSL_FILTER_END_PADVALUE,filtered,filtered,med_filt);
+
+          for (int j = 0; j < vec->size(); ++j)
+            vec->operator[](j) = gsl_vector_get(filtered,j);
+
+          gsl_filter_median_free(med_filt);
+          gsl_vector_free(filtered);
+
+      }
 
       to_plot.push_back(mag);
       to_plot.push_back(phase);

@@ -60,6 +60,7 @@ public slots:
 	void test_loop_times();
     void test_loop_times_dual_cam();
     bool open_port(QSerialPort& teensy);
+    void prep_cam(Camera_t* cam);
 
 signals:
 	void write_to_log(QString q);
