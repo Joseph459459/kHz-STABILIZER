@@ -37,6 +37,7 @@ public:
 	QVector<double> freqs;
     QVector<myFilter> filters[2];
 	std::vector<QCPCurve*> hysteresis_curves;
+    std::vector<QCPGraph*> tot_response_graphs;
 	QTimer animateTimer;
 	float phi = 0;
 	int graphidx = 0;
@@ -52,9 +53,10 @@ public slots:
 	void on_stabilizeButton_clicked();
 	void on_stopButton_clicked();
 	void on_learnButton_clicked();
-	void create_tf_plots();
+    void create_system_response_plots();
 	void update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y);
-	void update_tf_plot(QVector<QVector<double>> to_plot);
+    void update_local_sys_response_plot(QVector<QVector<double>> to_plot);
+    void update_total_sys_response_plot(QVector<QVector<double>> to_plot);
 	void on_horizontalZoomButton_toggled(bool j);
 	void new_filter(const QCPDataSelection& p);
 	void remove_filter(QCPAbstractPlottable* p, int j, QMouseEvent* e);

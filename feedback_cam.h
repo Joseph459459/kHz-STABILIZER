@@ -36,7 +36,8 @@ public slots:
 	void updateimage(GrabResultPtr_t ptr);
 	void on_findCentroidButton_clicked();
 	void on_actuatorRangeButton_clicked();
-    void on_systemResponseButton_clicked();
+    void on_totalSystemResponseButton_clicked();
+    void on_localSystemResponseButton_clicked();
 	void on_loopTimeButton_clicked();
 	void updateimagesize(int width, int height);
 	void on_zoomInButton_clicked();

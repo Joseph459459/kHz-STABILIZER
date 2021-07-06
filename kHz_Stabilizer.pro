@@ -56,13 +56,14 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 LIBS += -llapack -lblas -larmadillo -lgsl -lfftw3f -lfftw3
 
-LIBS += -L/opt/pylon/lib/ -lpylonbase
-LIBS += -L/opt/pylon/lib/ -lpylonbase-6.2.0
-LIBS += -L/opt/pylon/lib/ -lpylon_TL_gige
-LIBS += -L/opt/pylon/lib/ -lpylon_TL_gige-6.2.0
-LIBS += -L/opt/pylon/lib/ -lpylonc-6.2.0
-LIBS += -L/opt/pylon/lib/ -lGenApi_gcc_v3_1_Basler_pylon
-LIBS += -L/opt/pylon/lib/ -lGCBase_gcc_v3_1_Basler_pylon
+LIBS += -L$$(PYLON_ROOT)/lib/ -lpylonbase
+LIBS += -L$$(PYLON_ROOT)/lib/ -lpylonbase-6.2.0
+LIBS += -L$$(PYLON_ROOT)/lib/ -lpylon_TL_gige
+LIBS += -L$$(PYLON_ROOT)/lib/ -lpylon_TL_gige-6.2.0
+LIBS += -L$$(PYLON_ROOT)/lib/ -lpylonc-6.2.0
+LIBS += -L$$(PYLON_ROOT)/lib/ -lGenApi_gcc_v3_1_Basler_pylon
+LIBS += -L$$(PYLON_ROOT)/lib/ -lGCBase_gcc_v3_1_Basler_pylon
+
 
 RESOURCES += \
     khz_Stabilizer.qrc

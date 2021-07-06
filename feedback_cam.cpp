@@ -254,8 +254,6 @@ void feedback_cam::on_noiseSpectrumButton_clicked() {
 	progressbox->show();
 	progressbox->raise();
 
-    ui.systemResponseButton->setEnabled(true);
-
 	proc_thread->run_plan = SPECTRUM;
 	this->setDisabled(true);
 	progressbox->setDisabled(false);
@@ -302,12 +300,21 @@ void feedback_cam::on_loopTimeButton_clicked() {
     //proc_thread->test_loop_times();
 }
 
-void feedback_cam::on_systemResponseButton_clicked() {
+void feedback_cam::on_totalSystemResponseButton_clicked() {
 
 	safe_thread_close();
 	
-	proc_thread->run_plan = LEARN_SYS_RESPONSE;
+    proc_thread->run_plan = LEARN_TOT_SYS_RESPONSE;
 	proc_thread->start(QThread::TimeCriticalPriority);
+}
+
+void feedback_cam::on_localSystemResponseButton_clicked() {
+
+    safe_thread_close();
+
+    proc_thread->run_plan = LEARN_LOC_SYS_RESPONSE;
+    proc_thread->start(QThread::TimeCriticalPriority);
+
 }
 
 void feedback_cam::on_exposureBox_valueChanged(int i) {

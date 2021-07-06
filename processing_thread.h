@@ -42,6 +42,8 @@ public:
     std::vector<float> tones[2];
     float centroid_set_points[2];
 
+    std::array<float, 3> drive_freqs;
+
     std::atomic_bool monitor_cam_enabled = false;
 
 public slots:
@@ -51,7 +53,8 @@ public slots:
 	void correlate_cameras();
 	void adjust_framerate();
 	void find_actuator_range();
-	void learn_system_response();
+	void learn_total_system_response();
+    void learn_local_system_response();
 	void receive_large_serial_buffer(QSerialPort& teensy, std::vector<int>& buffer, int chunk_size);
 	void receive_cmd_line_data(QStringList cmd_str);
 	void test_loop_times();
@@ -65,7 +68,8 @@ signals:
 	void send_imgptr_blocking(GrabResultPtr_t ptr);
 	void updateprogress(int i);
 	void update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y);
-    void update_sys_response_plot(QVector<QVector<double>> to_plot);
+    void update_local_sys_response_plot(QVector<QVector<double>> to_plot);
+    void update_total_sys_response_plot(QVector<QVector<double>> to_plot);
 	void finished_analysis();
 
 

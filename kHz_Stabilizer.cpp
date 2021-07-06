@@ -21,7 +21,7 @@ kHz_Stabilizer::kHz_Stabilizer(CDeviceInfo fb_info, QWidget* parent)
     filters[1].resize(6);
 
 	create_fft_plots();
-	create_tf_plots();
+    create_system_response_plots();
 		
 }
 
@@ -37,7 +37,7 @@ kHz_Stabilizer::kHz_Stabilizer(CDeviceInfo fb_info, CDeviceInfo m_info, QWidget*
     filters[1].resize(6);
 
 	create_fft_plots();
-	create_tf_plots();
+    create_system_response_plots();
 
 }
 
@@ -122,7 +122,8 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, FC, &feedback_cam::updateimage,Qt::BlockingQueuedConnection);
 
     connect(&proc_thread, &processing_thread::update_fft_plot, this, &kHz_Stabilizer::update_fft_plot);
-    connect(&proc_thread, &processing_thread::update_sys_response_plot, this, &kHz_Stabilizer::update_tf_plot);
+    connect(&proc_thread, &processing_thread::update_local_sys_response_plot, this, &kHz_Stabilizer::update_local_sys_response_plot);
+    connect(&proc_thread, &processing_thread::update_total_sys_response_plot, this, &kHz_Stabilizer::update_total_sys_response_plot);
 
 	FC->setAttribute(Qt::WA_DeleteOnClose);
 
@@ -143,52 +144,99 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 
 }
 
-void kHz_Stabilizer::create_tf_plots() {
+void kHz_Stabilizer::create_system_response_plots() {
 
-	ui.tf_plot->plotLayout()->clear();
-	ui.tf_plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
+    ui.local_response_plot->plotLayout()->clear();
+    ui.local_response_plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
 
-	QCPAxisRect* tfaxes_x = new QCPAxisRect(ui.tf_plot, false);
-	QCPAxisRect* tfaxes_y = new QCPAxisRect(ui.tf_plot, false);
+    QCPAxisRect* loc_axes_x = new QCPAxisRect(ui.local_response_plot, false);
+    QCPAxisRect* loc_axes_y = new QCPAxisRect(ui.local_response_plot, false);
 
-	ui.tf_plot->plotLayout()->addElement(0, 0, tfaxes_x);
-	ui.tf_plot->plotLayout()->addElement(1, 0, tfaxes_y);
+    ui.local_response_plot->plotLayout()->addElement(0, 0, loc_axes_x);
+    ui.local_response_plot->plotLayout()->addElement(1, 0, loc_axes_y);
 
-	tfaxes_x->addAxes(QCPAxis::atLeft | QCPAxis::atBottom | QCPAxis::atRight);
-	tfaxes_x->axis(QCPAxis::atBottom)->grid()->setVisible(true);
-	tfaxes_x->axis(QCPAxis::atLeft)->grid()->setVisible(true);
-	tfaxes_x->axis(QCPAxis::atRight)->grid()->setVisible(true);
+    loc_axes_x->addAxes(QCPAxis::atLeft | QCPAxis::atBottom | QCPAxis::atRight);
+    loc_axes_x->axis(QCPAxis::atBottom)->grid()->setVisible(true);
+    loc_axes_x->axis(QCPAxis::atLeft)->grid()->setVisible(true);
+    loc_axes_x->axis(QCPAxis::atRight)->grid()->setVisible(true);
 
-	tfaxes_y->addAxes(QCPAxis::atLeft | QCPAxis::atBottom | QCPAxis::atRight);
-	tfaxes_y->axis(QCPAxis::atBottom)->grid()->setVisible(true);
-	tfaxes_y->axis(QCPAxis::atLeft)->grid()->setVisible(true);
-	tfaxes_y->axis(QCPAxis::atRight)->grid()->setVisible(true);
+    loc_axes_y->addAxes(QCPAxis::atLeft | QCPAxis::atBottom | QCPAxis::atRight);
+    loc_axes_y->axis(QCPAxis::atBottom)->grid()->setVisible(true);
+    loc_axes_y->axis(QCPAxis::atLeft)->grid()->setVisible(true);
+    loc_axes_y->axis(QCPAxis::atRight)->grid()->setVisible(true);
 
-	tfaxes_x->setRangeZoomAxes(tfaxes_x->axis(QCPAxis::atBottom), NULL);
-	tfaxes_x->setRangeDragAxes(tfaxes_x->axis(QCPAxis::atBottom), NULL);
+    loc_axes_x->setRangeZoomAxes(loc_axes_x->axis(QCPAxis::atBottom), NULL);
+    loc_axes_x->setRangeDragAxes(loc_axes_x->axis(QCPAxis::atBottom), NULL);
 
-	tfaxes_y->setRangeZoomAxes(tfaxes_y->axis(QCPAxis::atBottom), NULL);
-	tfaxes_y->setRangeDragAxes(tfaxes_y->axis(QCPAxis::atBottom), NULL);
+    loc_axes_y->setRangeZoomAxes(loc_axes_y->axis(QCPAxis::atBottom), NULL);
+    loc_axes_y->setRangeDragAxes(loc_axes_y->axis(QCPAxis::atBottom), NULL);
 
 	hysteresis_curves.resize(4);
 
-	hysteresis_curves[0] = new QCPCurve(tfaxes_x->axis(QCPAxis::atBottom), tfaxes_x->axis(QCPAxis::atLeft));
-	hysteresis_curves[1] = new QCPCurve(tfaxes_x->axis(QCPAxis::atBottom), tfaxes_x->axis(QCPAxis::atRight));
-	hysteresis_curves[2] = new QCPCurve(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atLeft));
-	hysteresis_curves[3] = new QCPCurve(tfaxes_y->axis(QCPAxis::atBottom), tfaxes_y->axis(QCPAxis::atRight));
+    hysteresis_curves[0] = new QCPCurve(loc_axes_x->axis(QCPAxis::atBottom), loc_axes_x->axis(QCPAxis::atLeft));
+    hysteresis_curves[1] = new QCPCurve(loc_axes_x->axis(QCPAxis::atBottom), loc_axes_x->axis(QCPAxis::atRight));
+    hysteresis_curves[2] = new QCPCurve(loc_axes_y->axis(QCPAxis::atBottom), loc_axes_y->axis(QCPAxis::atLeft));
+    hysteresis_curves[3] = new QCPCurve(loc_axes_y->axis(QCPAxis::atBottom), loc_axes_y->axis(QCPAxis::atRight));
 
 	hysteresis_curves[0]->setPen(QPen(QColor(250, 130, 0, 200)));
 	hysteresis_curves[1]->setPen(QPen(QColor(5, 0, 255, 200)));
 	hysteresis_curves[2]->setPen(QPen(QColor(250, 130, 0, 200)));
 	hysteresis_curves[3]->setPen(QPen(QColor(5, 0, 255, 200)));
 
-	tfaxes_x->axis(QCPAxis::atLeft)->setLabel("DAC Output");
-	tfaxes_x->axis(QCPAxis::atRight)->setLabel("Centroid X");
+    loc_axes_x->axis(QCPAxis::atLeft)->setLabel("DAC Output");
+    loc_axes_x->axis(QCPAxis::atRight)->setLabel("Centroid X");
 
-	tfaxes_y->axis(QCPAxis::atLeft)->setLabel("DAC Output");
-	tfaxes_y->axis(QCPAxis::atRight)->setLabel("Centroid Y");
+    loc_axes_y->axis(QCPAxis::atLeft)->setLabel("DAC Output");
+    loc_axes_y->axis(QCPAxis::atRight)->setLabel("Centroid Y");
 
-	ui.tf_plot->replot();
+    ui.local_response_plot->replot();
+
+    /*-----------------------------------------------------------------*/
+
+    ui.total_response_plot->plotLayout()->clear();
+    ui.total_response_plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom);
+
+    QCPAxisRect* tot_axes_x = new QCPAxisRect(ui.total_response_plot, false);
+    QCPAxisRect* tot_axes_y = new QCPAxisRect(ui.total_response_plot, false);
+
+    ui.total_response_plot->plotLayout()->addElement(0, 0, tot_axes_x);
+    ui.total_response_plot->plotLayout()->addElement(1, 0, tot_axes_y);
+
+    tot_axes_x->addAxes(QCPAxis::atLeft | QCPAxis::atBottom | QCPAxis::atRight);
+    tot_axes_x->axis(QCPAxis::atBottom)->grid()->setVisible(true);
+    tot_axes_x->axis(QCPAxis::atLeft)->grid()->setVisible(true);
+    tot_axes_x->axis(QCPAxis::atRight)->grid()->setVisible(true);
+
+    tot_axes_y->addAxes(QCPAxis::atLeft | QCPAxis::atBottom | QCPAxis::atRight);
+    tot_axes_y->axis(QCPAxis::atBottom)->grid()->setVisible(true);
+    tot_axes_y->axis(QCPAxis::atLeft)->grid()->setVisible(true);
+    tot_axes_y->axis(QCPAxis::atRight)->grid()->setVisible(true);
+
+    tot_axes_x->setRangeZoomAxes(tot_axes_x->axis(QCPAxis::atBottom), NULL);
+    tot_axes_x->setRangeDragAxes(tot_axes_x->axis(QCPAxis::atBottom), NULL);
+
+    tot_axes_y->setRangeZoomAxes(tot_axes_y->axis(QCPAxis::atBottom), NULL);
+    tot_axes_y->setRangeDragAxes(tot_axes_y->axis(QCPAxis::atBottom), NULL);
+
+    tot_response_graphs.resize(4);
+
+    tot_response_graphs[0] = new QCPGraph(tot_axes_x->axis(QCPAxis::atBottom), tot_axes_x->axis(QCPAxis::atLeft));
+    tot_response_graphs[1] = new QCPGraph(tot_axes_x->axis(QCPAxis::atBottom), tot_axes_x->axis(QCPAxis::atRight));
+    tot_response_graphs[2] = new QCPGraph(tot_axes_y->axis(QCPAxis::atBottom), tot_axes_y->axis(QCPAxis::atLeft));
+    tot_response_graphs[3] = new QCPGraph(tot_axes_y->axis(QCPAxis::atBottom), tot_axes_y->axis(QCPAxis::atRight));
+
+    tot_response_graphs[0]->setPen(QPen(QColor(250, 130, 0, 200)));
+    tot_response_graphs[1]->setPen(QPen(QColor(5, 0, 255, 200)));
+    tot_response_graphs[2]->setPen(QPen(QColor(250, 130, 0, 200)));
+    tot_response_graphs[3]->setPen(QPen(QColor(5, 0, 255, 200)));
+
+    tot_axes_x->axis(QCPAxis::atLeft)->setLabel("Magnitude X");
+    tot_axes_x->axis(QCPAxis::atRight)->setLabel("Magnitude Y");
+
+    tot_axes_y->axis(QCPAxis::atLeft)->setLabel("Phase X");
+    tot_axes_y->axis(QCPAxis::atRight)->setLabel("Phase Y");
+
+    ui.total_response_plot->replot();
 
 }
 
@@ -292,29 +340,41 @@ void kHz_Stabilizer::update_fft_plot(float rms_x, float rms_y, float peak_to_pea
 	update_log(QString("peak to peak y: ") + QString::number(peak_to_peak_y,'f',2));
 }
 
-void kHz_Stabilizer::update_tf_plot(QVector<QVector<double>> to_plot) {
+void kHz_Stabilizer::update_local_sys_response_plot(QVector<QVector<double>> to_plot) {
 
+    hysteresis_curves[1]->setData(to_plot[0],
+        to_plot[1]);
+
+    hysteresis_curves[3]->setData(to_plot[3],
+        to_plot[4]);
+
+    hysteresis_curves[0]->setData(to_plot[0],
+        to_plot[2]);
+
+    hysteresis_curves[2]->setData(to_plot[3],
+        to_plot[5]);
+
+
+    ui.local_response_plot->rescaleAxes();
+    ui.local_response_plot->replot();
+
+}
+
+void kHz_Stabilizer::update_total_sys_response_plot(QVector<QVector<double>> to_plot) {
 
     QVector<double> keys(to_plot[0].size());
 
     for (int i = 0; i < keys.size(); ++i)
         keys[i] =  500 * i / keys.size(); ;
 
-    hysteresis_curves[1]->setData(keys,
+    tot_response_graphs[1]->setData(keys,
         to_plot[2]);
 
-    hysteresis_curves[3]->setData(keys,
+    tot_response_graphs[3]->setData(keys,
         to_plot[3]);
 
-    //hysteresis_curves[0]->setData(to_plot[0],
-    //	to_plot[2]);
-
-    //hysteresis_curves[2]->setData(to_plot[3],
-    //	to_plot[5]);
-
-
-	ui.tf_plot->rescaleAxes();
-	ui.tf_plot->replot();
+    ui.total_response_plot->rescaleAxes();
+    ui.total_response_plot->replot();
 
 }
 
@@ -326,10 +386,16 @@ void kHz_Stabilizer::on_horizontalZoomButton_toggled(bool j) {
 			ui.plot->axisRect(1)->setRangeDragAxes(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
 			ui.plot->axisRect(1)->setRangeZoomAxes(ui.plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
 			
-			ui.tf_plot->axisRect(0)->setRangeDragAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
-			ui.tf_plot->axisRect(0)->setRangeZoomAxes(ui.tf_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
-			ui.tf_plot->axisRect(1)->setRangeDragAxes(ui.tf_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
-			ui.tf_plot->axisRect(1)->setRangeZoomAxes(ui.tf_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
+            ui.local_response_plot->axisRect(0)->setRangeDragAxes(ui.local_response_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+            ui.local_response_plot->axisRect(0)->setRangeZoomAxes(ui.local_response_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+            ui.local_response_plot->axisRect(1)->setRangeDragAxes(ui.local_response_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
+            ui.local_response_plot->axisRect(1)->setRangeZoomAxes(ui.local_response_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
+
+            ui.total_response_plot->axisRect(0)->setRangeDragAxes(ui.total_response_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+            ui.total_response_plot->axisRect(0)->setRangeZoomAxes(ui.total_response_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
+            ui.total_response_plot->axisRect(1)->setRangeDragAxes(ui.total_response_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
+            ui.total_response_plot->axisRect(1)->setRangeZoomAxes(ui.total_response_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
+
 
 
 	}
@@ -342,18 +408,34 @@ void kHz_Stabilizer::on_horizontalZoomButton_toggled(bool j) {
 			QList<QCPAxis*> empty;
 			empty.append(NULL);
 			QList<QCPAxis*> axes;
-			axes.append(ui.tf_plot->axisRect(0)->axis(QCPAxis::atLeft));
-			axes.append(ui.tf_plot->axisRect(0)->axis(QCPAxis::atRight));
+            axes.append(ui.local_response_plot->axisRect(0)->axis(QCPAxis::atLeft));
+            axes.append(ui.local_response_plot->axisRect(0)->axis(QCPAxis::atRight));
 
-			ui.tf_plot->axisRect(0)->setRangeDragAxes(empty, axes);
-			ui.tf_plot->axisRect(0)->setRangeZoomAxes(empty, axes);
+            ui.local_response_plot->axisRect(0)->setRangeDragAxes(empty, axes);
+            ui.local_response_plot->axisRect(0)->setRangeZoomAxes(empty, axes);
 
 			axes.clear();
-			axes.append(ui.tf_plot->axisRect(1)->axis(QCPAxis::atLeft));
-			axes.append(ui.tf_plot->axisRect(1)->axis(QCPAxis::atRight));
+            axes.append(ui.local_response_plot->axisRect(1)->axis(QCPAxis::atLeft));
+            axes.append(ui.local_response_plot->axisRect(1)->axis(QCPAxis::atRight));
 
-			ui.tf_plot->axisRect(1)->setRangeDragAxes(empty, axes);
-			ui.tf_plot->axisRect(1)->setRangeZoomAxes(empty, axes);
+            ui.local_response_plot->axisRect(1)->setRangeDragAxes(empty, axes);
+            ui.local_response_plot->axisRect(1)->setRangeZoomAxes(empty, axes);
+
+            /*----------------------------------------------------------------------*/
+
+            axes.clear();
+            axes.append(ui.total_response_plot->axisRect(0)->axis(QCPAxis::atLeft));
+            axes.append(ui.total_response_plot->axisRect(0)->axis(QCPAxis::atRight));
+
+            ui.total_response_plot->axisRect(0)->setRangeDragAxes(empty, axes);
+            ui.total_response_plot->axisRect(0)->setRangeZoomAxes(empty, axes);
+
+            axes.clear();
+            axes.append(ui.total_response_plot->axisRect(1)->axis(QCPAxis::atLeft));
+            axes.append(ui.total_response_plot->axisRect(1)->axis(QCPAxis::atRight));
+
+            ui.total_response_plot->axisRect(1)->setRangeDragAxes(empty, axes);
+            ui.total_response_plot->axisRect(1)->setRangeZoomAxes(empty, axes);
 		}
 	
 }

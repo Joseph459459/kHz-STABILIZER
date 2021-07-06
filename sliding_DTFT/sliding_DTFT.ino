@@ -7,8 +7,6 @@
 
 ADC* adc = new ADC();
 
-uint16_t system_response_input_arr[sys_response_window];
-
 int i, j;
 int in[2] = { 0 , 0 };
 int timeout = 0;
@@ -61,9 +59,12 @@ void post_setup() {
         find_range();
         break;
 
-      case LEARN_SYS_RESPONSE:
-        learn_system_response();
+      case LEARN_TOT_SYS_RESPONSE:
+        learn_total_system_response();
         break;
+
+      case LEARN_LOC_SYS_RESPONSE:
+        learn_local_system_response();
 
       case STABILIZE:
         stabilize();
@@ -195,13 +196,16 @@ void stabilize() {
   }
 }
 
-void learn_system_response() {
+void learn_local_system_response() {
+
+  uint16_t* system_response_input_arr = new uint16_t[loc_sys_response_window];
 
   digitalWriteFast(LED_BUILTIN, HIGH);
 
   Serial.readBytes((char*)&DACmax[1], 2);
+  Serial.readBytes((char*)drive_freqs,12);
 
-  generate_system_response_input(system_response_input_arr, DACmax[1],20,300);
+  generate_local_system_response_input(system_response_input_arr, DACmax[1],drive_freqs);
 
   init_actuator();
 
@@ -210,11 +214,55 @@ void learn_system_response() {
 
   i = 0;
 
-  while (i < sys_response_window) {
+  while (i < loc_sys_response_window) {
 
     elapsedMillis m;
     while (!Serial.available()) {
       if (m > 1000) {
+        delete system_response_input_arr;
+        taper_down();
+        return;
+      }
+    }
+
+    if (Serial.read() != SYNC_FLAG) {
+    }
+
+    else {
+      delayMicroseconds(20);
+      //analogWriteDAC0(system_response_input_arr[i]);
+      analogWriteDAC1(system_response_input_arr[i]);
+      ++i;
+    }
+  }
+  
+  delete system_response_input_arr;
+  taper_down();
+}
+
+void learn_total_system_response() {
+
+  uint16_t* system_response_input_arr = new uint16_t[tot_sys_response_window];
+
+  digitalWriteFast(LED_BUILTIN, HIGH);
+
+  Serial.readBytes((char*)&DACmax[1], 2);
+
+  generate_total_system_response_input(system_response_input_arr, DACmax[1],20,300);
+
+  init_actuator();
+
+  Serial.clear();
+  Serial.write((byte) CONTINUE);
+
+  i = 0;
+
+  while (i < tot_sys_response_window) {
+
+    elapsedMillis m;
+    while (!Serial.available()) {
+      if (m > 1000) {
+        delete system_response_input_arr;
         taper_down();
         return;
       }
@@ -231,9 +279,9 @@ void learn_system_response() {
     }
   }
 
+  delete system_response_input_arr;
   taper_down();
 }
-
 
 void find_range() {
 

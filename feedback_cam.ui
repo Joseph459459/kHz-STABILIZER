@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>511</width>
-    <height>598</height>
+    <height>645</height>
    </rect>
   </property>
   <property name="styleSheet">
@@ -38,7 +38,7 @@
          <x>0</x>
          <y>0</y>
          <width>319</width>
-         <height>559</height>
+         <height>606</height>
         </rect>
        </property>
        <layout class="QGridLayout" name="gridLayout">
@@ -359,7 +359,7 @@ border-style: inset;
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="systemResponseButton">
+       <widget class="QPushButton" name="totalSystemResponseButton">
         <property name="enabled">
          <bool>true</bool>
         </property>
@@ -389,7 +389,43 @@ border-style: inset;
 }</string>
         </property>
         <property name="text">
-         <string>Learn System 
+         <string>Learn Total System 
+ Response</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="localSystemResponseButton">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="font">
+         <font>
+          <family>Source Code Pro</family>
+         </font>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">QPushButton{
+border-style: solid;
+border-color: rgba(200,100,0,130);
+border-width: 1px;
+}
+
+QPushButton::pressed{
+background-color: rgba(200, 100, 0,20);
+border-style: inset;
+
+
+}</string>
+        </property>
+        <property name="text">
+         <string>Learn Local System 
  Response</string>
         </property>
        </widget>

@@ -559,7 +559,7 @@ QRadioButton::indicator:unchecked {
          <enum>QTabWidget::Triangular</enum>
         </property>
         <property name="currentIndex">
-         <number>0</number>
+         <number>3</number>
         </property>
         <widget class="QWidget" name="plotTab">
          <attribute name="title">
@@ -758,13 +758,23 @@ QRadioButton::indicator:unchecked {
           </item>
          </layout>
         </widget>
-        <widget class="QWidget" name="transferFunctionTab">
+        <widget class="QWidget" name="localResponseTab">
          <attribute name="title">
-          <string>Transfer Function </string>
+          <string>Local System Response</string>
          </attribute>
          <layout class="QGridLayout" name="gridLayout_6">
           <item row="0" column="0">
-           <widget class="QCustomPlot" name="tf_plot" native="true"/>
+           <widget class="QCustomPlot" name="local_response_plot" native="true"/>
+          </item>
+         </layout>
+        </widget>
+        <widget class="QWidget" name="totalResponseTab">
+         <attribute name="title">
+          <string>Total System Response</string>
+         </attribute>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0">
+           <widget class="QCustomPlot" name="total_response_plot" native="true"/>
           </item>
          </layout>
         </widget>
