@@ -32,7 +32,7 @@ camera_select::camera_select(QWidget *parent)
 
     system("echo Assigning camera and microcontroller interrupts to core 2...");
     system("echo");
-    system("sudo tuna --irqs=33,34 --cpus=2 --move");
+    //system("sudo tuna --irqs=33,34 --cpus=2 --move");
     system("echo DONE");
 
 

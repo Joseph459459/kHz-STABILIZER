@@ -44,6 +44,8 @@ public:
 
     std::array<float, 3> drive_freqs;
 
+    std::array<float, 2> cam_correlation_params[2];
+
     std::atomic_bool monitor_cam_enabled = false;
 
 public slots:
@@ -72,7 +74,7 @@ signals:
     void update_local_sys_response_plot(QVector<QVector<double>> to_plot);
     void update_total_sys_response_plot(QVector<QVector<double>> to_plot);
 	void finished_analysis();
-
+    void update_correlation_plot(QVector<QVector<double>> fb,QVector<QVector<double>> m);
 
 private:
 	void run() override;
@@ -107,7 +109,8 @@ inline void centroid(GrabResultPtr_t ptr, const int height, const int width, flo
 
 }
 
-inline void centroid_alt(GrabResultPtr_t ptr, const int height, const int width, float out[], const int threshold) {
+template<typename T>
+inline void centroid_alt(GrabResultPtr_t ptr, const int height, const int width, T out[], const int threshold) {
 
     unsigned char* p = (unsigned char*)ptr->GetBuffer();
 
@@ -123,8 +126,8 @@ inline void centroid_alt(GrabResultPtr_t ptr, const int height, const int width,
             sum += *p;
         }
     }
-    out[0] = sumx / (float)sum;
-    out[1] = sumy / (float)sum;
+    out[0] = sumx / (T)sum;
+    out[1] = sumy / (T)sum;
 
 }
 

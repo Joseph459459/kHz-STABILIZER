@@ -108,6 +108,7 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 	qRegisterMetaType<GrabResultPtr_t>("GrabResultPtr_t");
 	qRegisterMetaType<std::array<double, 3>>("std::array<double,3>");
 	qRegisterMetaType<QVector<double>>("QVector<double>");
+    qRegisterMetaType<QVector<QVector<double>>>("QVector<QVector<double>>");
 
 	proc_thread.fb_cam.Open();
 	
@@ -117,7 +118,6 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 	FC = new feedback_cam(&proc_thread, this);
     connect(FC, &feedback_cam::write_to_log, this, &kHz_Stabilizer::update_log);
 
-	qRegisterMetaType<QVector<QVector<double>>>("QVector<QVector<double>>");
 	connect(&proc_thread, &processing_thread::send_feedback_ptr, FC, &feedback_cam::updateimage);
 	connect(&proc_thread, &processing_thread::send_imgptr_blocking, FC, &feedback_cam::updateimage,Qt::BlockingQueuedConnection);
 
@@ -134,6 +134,9 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 		connect(&proc_thread, &processing_thread::send_monitor_ptr, MC, &monitor_cam::updateimage);
 		connect(&proc_thread, &processing_thread::send_imgptr_blocking, MC, &monitor_cam::updateimage, Qt::BlockingQueuedConnection);
 		connect(FC, &QDockWidget::destroyed, MC, &QDockWidget::deleteLater);
+
+        connect(&proc_thread, &processing_thread::update_correlation_plot,this, &kHz_Stabilizer::update_correlation_plot);
+
 		MC->show();
 	}
 
@@ -362,19 +365,49 @@ void kHz_Stabilizer::update_local_sys_response_plot(QVector<QVector<double>> to_
 
 void kHz_Stabilizer::update_total_sys_response_plot(QVector<QVector<double>> to_plot) {
 
-    QVector<double> keys(to_plot[0].size());
+    QVector<double> keys(to_plot[0].size());    
 
     for (int i = 0; i < keys.size(); ++i)
         keys[i] =  500 * i / keys.size(); ;
 
+    int upper_lim = tot_sys_response_window / 2 * 300.0 / 500;
+    int lower_lim = tot_sys_response_window / 2 * 30.0 / 500;
+
+    for (QVector<double> plt_vec : to_plot){
+        plt_vec.erase(plt_vec.begin() + upper_lim, plt_vec.end());
+        plt_vec.erase(plt_vec.begin(), plt_vec.begin() + lower_lim);
+    }
+
+    keys.erase(keys.begin() + upper_lim,keys.end());
+    keys.erase(keys.begin(), keys.begin() + lower_lim);
+
+
+    tot_response_graphs[0]->setData(keys,
+        to_plot[0]);
+
     tot_response_graphs[1]->setData(keys,
         to_plot[2]);
+
+    tot_response_graphs[2]->setData(keys,
+        to_plot[1]);
 
     tot_response_graphs[3]->setData(keys,
         to_plot[3]);
 
     ui.total_response_plot->rescaleAxes();
     ui.total_response_plot->replot();
+
+}
+
+void kHz_Stabilizer::update_correlation_plot(QVector<QVector<double>> fb_centroids,QVector<QVector<double>> monitor_centroids){
+
+    ui.corr_plot->addGraph();
+
+    ui.corr_plot->graph(0)->setData(monitor_centroids[1],fb_centroids[1]);
+
+    ui.corr_plot->rescaleAxes();
+
+    ui.corr_plot->replot();
 
 }
 
@@ -598,4 +631,8 @@ void kHz_Stabilizer::on_cmdLineBox_returnPressed() {
 	ui.cmdLineBox->clear();
 
 }
+
+
+
+
 

@@ -4,7 +4,7 @@
 #include <vector>
 
 #define fft_window 10000
-#define tot_sys_response_window 10000
+#define tot_sys_response_window 20000
 
 #define n_taps 301
 #define section_width 1000

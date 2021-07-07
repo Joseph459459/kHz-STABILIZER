@@ -26,8 +26,8 @@ struct SDTFT_algo {
 
         A = fit_params[0];
 		B = fit_params[1];
-		C = fit_params[2];
-		D = fit_params[3];
+        C = fit_params[2];
+        D = fit_params[3];
 
         num_tones = tones.size();
 
@@ -124,14 +124,21 @@ struct SDTFT_algo {
 		}
 
 		target[0] -= differential;
-		target[0] -= error/static_cast<float>(moving_avg_window);
+        target[0] -= error/static_cast<float>(moving_avg_window);
 		  
+        DAC_cmds[0] = (target[0] - B + (C + 2 * D) * DAC_cmds[1] - D * DAC_cmds[2]) / (A + C + D);
 
-		DAC_cmds[0] = (target[0] - B - (C + 2 * D) * DAC_cmds[1] + D * DAC_cmds[2]) / (A - C - D);
+        if (std::max(DAC_cmds[0],0) == 0){
+            target[0] = B - (C + 2*D)*DAC_cmds[1] + D*DAC_cmds[2];
+            DAC_cmds[0] = 0;
+            return 0;
+        }
+        if (std::min(DAC_cmds[0], DAC_max) == DAC_max){
+            target[0] = (A+C+D)*DAC_max + B - (C + 2*D)*DAC_cmds[1] + D*DAC_cmds[2];
+            DAC_cmds[0] = DAC_max;
+            return DAC_max;
+        }
 
-		DAC_cmds[0] = std::max(DAC_cmds[0], 0);
-        DAC_cmds[0] = std::min(DAC_cmds[0], DAC_max);
-		
 		return DAC_cmds[0];
 
 	}

@@ -14,7 +14,7 @@
 using namespace arma;
 
 #define STABILIZE_DEBUG
-//#undef STABILIZE_DEBUG
+#undef STABILIZE_DEBUG
 
 const char x_y[2] = {'x', 'y'};
 
@@ -39,19 +39,24 @@ struct harmonics_filter {
 
     for (int freq : my_freqs) {
 
-      Filter *temp = new Filter(BPF, n_taps, 1000, freq - filter_halfwidth,
-                                freq + filter_halfwidth);
-
-      for (int i = 0; i < 1500; ++i) {
-        in[i] = cos(2 * PI * freq / 1000 * i);
-        out[i] = temp->do_sample(in[i]);
+      if (freq > 500){
+          gain_factors.push_back(1);
       }
+      else{
 
-      auto gain = std::max_element(out.begin() + n_taps + 1, out.end());
+          Filter *temp = new Filter(BPF, n_taps, 1000, freq - filter_halfwidth,
+                                    freq + filter_halfwidth);
+          for (int i = 0; i < 1500; ++i) {
+            in[i] = cos(2 * PI * freq / 1000 * i);
+            out[i] = temp->do_sample(in[i]);
+          }
 
-      gain_factors.push_back(*gain);
+          auto gain = std::max_element(out.begin() + n_taps + 1, out.end());
 
-      delete temp;
+          gain_factors.push_back(*gain);
+
+          delete temp;
+      }
     }
   }
 
@@ -148,7 +153,6 @@ void processing_thread::receive_large_serial_buffer(QSerialPort &teensy,
 void processing_thread::prep_cam(Camera_t* cam){
 
     try{
-    cam->MaxNumBuffer.SetValue(5);
     cam->GetStreamGrabberParams().MaxTransferSize.SetToMaximum();
     cam->GetStreamGrabberParams().NumMaxQueuedUrbs.SetValue(164);
     cam->InternalGrabEngineThreadPriorityOverride.SetValue(true);
@@ -317,6 +321,8 @@ void processing_thread::test_loop_times_dual_cam(){
 
     teensy.write(QByteArray(1, TEST_LOOP_TIME));
     teensy.waitForBytesWritten(100);
+    teensy.waitForReadyRead();
+    teensy.clear();
 
     GrabResultPtr_t fb_ptr;
     GrabResultPtr_t monitor_ptr;
@@ -326,14 +332,16 @@ void processing_thread::test_loop_times_dual_cam(){
     float monitor_centroid[2];
 
     int missed = 0;
+    fb_cam.StartGrabbing();
+    monitor_cam.StartGrabbing();
 
     for (int i = 0; i < 5000; ++i) {
 
       if (fb_cam.RetrieveResult(1000, fb_ptr, Pylon::TimeoutHandling_Return)) {
         centroid_alt(fb_ptr, height[0], width[0], fb_centroid, threshold);
         fb_ptr.Release();
-
        }
+
       if (monitor_cam.RetrieveResult(1000,monitor_ptr,Pylon::TimeoutHandling_Return)) {
         centroid_alt(monitor_ptr,height[1],width[1],monitor_centroid,threshold);
         monitor_ptr.Release();
@@ -442,7 +450,7 @@ void processing_thread::stabilize() {
 
   std::vector<double> noise(2000);
   for (int i = 26; i < 2026; ++i) {
-    noise[i - 26] = 2 * cos(2 * PI * 110 / 1000 * i);
+    noise[i - 26] = 0.85 * cos(2 * PI * 210 / 1000 * i);
   }
 
   qDebug() << "beginning stabilizer debug";
@@ -471,10 +479,12 @@ void processing_thread::stabilize() {
   const int width = fb_cam.Width();
   float new_centroid[2];
 
-  fb_cam.MaxNumBuffer = 5;
-  fb_cam.StartGrabbing(GrabStrategy_LatestImageOnly);
+  prep_cam(&fb_cam);
+  fb_cam.StartGrabbing();
+
   int k = 0;
   acquiring = true;
+
 
   while (acquiring) {
 
@@ -514,6 +524,25 @@ void processing_thread::stabilize() {
 void processing_thread::receive_cmd_line_data(QStringList cmd_str_list) {
 
   bool numcheck = false;
+
+  if (cmd_str_list.length() == 3) {
+
+    for (int i = 0; i < 3; ++i) {
+
+      drive_freqs[i] = cmd_str_list[i].toFloat(&numcheck);
+
+      if (numcheck == false) {
+        write_to_log(QString("Could not parse driving frequencies"));
+        return;
+      }
+    }
+
+    write_to_log(QString("Driving frequencies have been updated to: " +
+                         QString::number(drive_freqs[0]) + QString(" , ") +
+                         QString::number(drive_freqs[1]) + QString(" , and ") +
+                         QString::number(drive_freqs[2])) +
+                 QString(" Hz"));
+  }
 
   if (cmd_str_list.length() == 2) {
 
@@ -703,11 +732,6 @@ void processing_thread::analyze_spectrum() {
   emit finished_analysis();
 }
 
-/* To determine the system response in a noisy environment, it is best to drive
- * the system at frequencies that are far from the noise.
- * This functions smooths the noise spectrum and finds the minima in three
- * regions, which are the driving frequencies */
-
 bool processing_thread::open_port(QSerialPort &teensy) {
 
   QList<QSerialPortInfo> ports = QSerialPortInfo::availablePorts();
@@ -757,7 +781,7 @@ void processing_thread::find_actuator_range() {
 
   GrabResultPtr_t ptr;
 
-  fb_cam.StartGrabbing(Pylon::GrabStrategy_UpcomingImage);
+  fb_cam.StartGrabbing(Pylon::GrabStrategy_LatestImageOnly);
 
   long AOI[2] = {fb_cam.Width(), fb_cam.Height()};
 
@@ -954,14 +978,14 @@ void processing_thread::learn_total_system_response() {
           gsl_vector* filtered = gsl_vector_alloc(vec->size());
 
           for (int j = 0; j < vec->size(); ++j)
-            gsl_vector_set(filtered,j,vec->at(j));
+            gsl_vector_set(filtered,j,(*vec)[j]);
 
           gsl_filter_median_workspace* med_filt = gsl_filter_median_alloc(10);
 
           gsl_filter_median(GSL_FILTER_END_PADVALUE,filtered,filtered,med_filt);
 
           for (int j = 0; j < vec->size(); ++j)
-            vec->operator[](j) = gsl_vector_get(filtered,j);
+            (*vec)[j] = gsl_vector_get(filtered,j);
 
           gsl_filter_median_free(med_filt);
           gsl_vector_free(filtered);
@@ -989,9 +1013,9 @@ void processing_thread::learn_local_system_response() {
 
      adjust_framerate();
 
-     if (fb_cam.ResultingFrameRateAbs.GetValue() < 1000) {
+     if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
        emit write_to_log(QString("Camera cannot acquire at 1 kHz") +
-                         QString::number(fb_cam.ResultingFrameRateAbs()) +
+                         QString::number(fb_cam.ResultingFrameRate()) +
                          QString(" Hz)"));
      } else {
 
@@ -1011,8 +1035,8 @@ void processing_thread::learn_local_system_response() {
        open_port(teensy);
 
        teensy.write(QByteArray(1, LEARN_LOC_SYS_RESPONSE));
-       teensy.write((const char *)drive_freqs.data(), 12);
        teensy.write((const char *)&max_DAC_val[1], 2);
+       teensy.write((const char *)drive_freqs.data(), 12);
 
        if (!teensy.waitForBytesWritten(100)) {
          emit write_to_log(QString("Synchronization error: could not write"));
@@ -1039,15 +1063,15 @@ void processing_thread::learn_local_system_response() {
        float new_centroid[2];
        GrabResultPtr_t ptr;
 
-       fb_cam.MaxNumBuffer.SetValue(loc_sys_response_window);
+       //fb_cam.MaxNumBuffer.SetValue(loc_sys_response_window);
        fb_cam.StartGrabbing();
 
        int i = 0;
        while (i < loc_sys_response_window) {
 
-         if (fb_cam.RetrieveResult(2, ptr, Pylon::TimeoutHandling_Return)) {
+         if (fb_cam.RetrieveResult(100, ptr, Pylon::TimeoutHandling_Return)) {
 
-           centroid(ptr, height, width, new_centroid, threshold);
+           centroid_alt(ptr, height, width, new_centroid, threshold);
 
            centroids[0][i] = width - new_centroid[0];
            centroids[1][i] = height - new_centroid[1];
@@ -1069,7 +1093,7 @@ void processing_thread::learn_local_system_response() {
 
        system_response_input.pop_back();
 
-       QVector<QVector<double>> to_plot(2);
+       QVector<QVector<double>> to_plot;
        std::vector<double> model_RMSE(2);
 
        for (int i = 0; i < 2; ++i) {
@@ -1138,27 +1162,33 @@ void processing_thread::learn_local_system_response() {
 
          /* SOLVE FOR SYSTEM RESPONSE FUNCTION -------------------------*/
 
-         mat A_B =
-             solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows)), centroid_full);
+//         mat A_B =
+//             solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows)), centroid_full);
 
-         vec errors = centroid_full - (A_B(0) * DAC_full + A_B(1));
+//         vec errors = centroid_full - (A_B(0) * DAC_full + A_B(1));
 
-         mat C = solve(dDAC_full, errors);
+//         double C = as_scalar(solve(dDAC_full, errors));
 
-         errors = errors - C*dDAC_full;
+//         errors = errors - C*dDAC_full;
 
-         mat D = solve(ddDAC_full,errors);
+//         double D = as_scalar(solve(ddDAC_full,errors));
 
-         std::array<double, 4> fit = {A_B(0), A_B(1), C(0), D(0)};
+//         errors = errors - D*ddDAC_full;
+
+//         std::array<double, 4> fit = {A_B(0), A_B(1), C, D};
+
+         mat ABCD = solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows),dDAC_full,ddDAC_full), centroid_full);
+         vec errors = centroid_full - join_rows(DAC_full, ones<vec>(DAC_full.n_rows),dDAC_full,ddDAC_full)*ABCD;
+         std::array<double,4> fit = {ABCD(0),ABCD(1),ABCD(2),ABCD(3)};
 
          fit_params[i] = fit;
 
          model_RMSE[i] =
-             sqrt(arma::sum(square(errors - (C(0) * dDAC_full + D(0) * ddDAC_full))) /
+             sqrt(arma::sum(square(errors)) /
                   ddDAC_full.n_rows);
 
          vec simulated =
-             centroid_full + errors - (C(0) * dDAC_full + D(0) * (ddDAC_full));
+             centroid_full + errors;
 
          // QCustomPlot wants QVectors...
          to_plot.push_back(QVector<double>::fromStdVector(
@@ -1172,16 +1202,16 @@ void processing_thread::learn_local_system_response() {
        /* UPDATE GUI ---------------------------------------------------*/
 
        emit write_to_log(
-           " centroid_y = " + QString::number(fit_params[1][0], 'e', 2) + "y + " +
-           QString::number(fit_params[1][1], 'e', 2) + " - (" +
-           QString::number(fit_params[1][2], 'e', 2) + "dy + " +
-           QString::number(fit_params[1][3], 'e', 2) + " dcentroids[1]) ");
+           " centroid_y = " + QString::number(fit_params[1][0], 'e', 2) + ", " +
+           QString::number(fit_params[1][1], 'e', 2) + ", " +
+           QString::number(fit_params[1][2], 'e', 2) + ", " +
+           QString::number(fit_params[1][3], 'e', 2) + " ");
 
        emit write_to_log(
-           " centroid_x = " + QString::number(fit_params[0][0], 'e', 2) + "x + " +
-           QString::number(fit_params[0][1], 'e', 2) + " - (" +
-           QString::number(fit_params[0][2], 'e', 2) + "dx + " +
-           QString::number(fit_params[0][3], 'e', 2) + " dcentroids[0]) ");
+           " centroid_x = " + QString::number(fit_params[0][0], 'e', 2) + ", " +
+           QString::number(fit_params[0][1], 'e', 2) + ", " +
+           QString::number(fit_params[0][2], 'e', 2) + ", " +
+           QString::number(fit_params[0][3], 'e', 2) + " ");
 
        emit write_to_log(
            " x model RMSE: " + QString::number(model_RMSE[0], 'g', 2) + " px");
@@ -1202,62 +1232,104 @@ void processing_thread::correlate_cameras() {
   emit write_to_log(
       QString("Finding Linear Feedback/Monitor Camera Correlation..."));
 
-  adjust_framerate();
+    adjust_framerate();
 
-  if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
-    emit write_to_log(QString("feedback camera cannot acquire at 1 kHz (") +
-                      QString::number(fb_cam.ResultingFrameRate()) +
-                      QString(" Hz)"));
-    return;
-  } else if (monitor_cam.ResultingFrameRate.GetValue() < 1000) {
-    emit write_to_log(QString("monitor camera cannot acquire at 1 kHz (") +
-                      QString::number(monitor_cam.ResultingFrameRate()) +
-                      QString(" Hz)"));
-    return;
-  } else if (fb_cam.TriggerMode.GetValue() !=
-                 TriggerModeEnums::TriggerMode_On ||
-             monitor_cam.TriggerMode.GetValue() !=
-                 TriggerModeEnums::TriggerMode_On) {
-    emit write_to_log(
-        QString("Both cameras must be triggered for synchronous capture"));
-    return;
-  } else {
+    if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
+      emit write_to_log(QString("Feedback camera cannot acquire at 1 kHz (") +
+                        QString::number(fb_cam.ResultingFrameRate()) +
+                        QString(" Hz)"));
+      emit finished_analysis();
+      return;
+    }
+    if (monitor_cam.ResultingFrameRate.GetValue() < 1000) {
+      emit write_to_log(QString("Feedback camera cannot acquire at 1 kHz (") +
+                        QString::number(monitor_cam.ResultingFrameRate()) +
+                        QString(" Hz)"));
+      emit finished_analysis();
+      return;
+    }
+    emit write_to_log(QString("Feedback cam sensor readout: ") + QString::number(fb_cam.SensorReadoutTime()));
+    emit write_to_log(QString("Monitor cam sensor readout: ") + QString::number(monitor_cam.SensorReadoutTime()));
 
-    // qDebug() << fb_cam.ReadoutTimeAbs.GetValue();
-
-    // fb_cam.GevIEEE1588.SetValue(true);
-    // monitor_cam.GevIEEE1588.SetValue(true);
-    // qDebug() << fb_cam.GevIEEE1588Status.ToString();
-    // qDebug() << monitor_cam.GevIEEE1588Status.ToString();
-    //
-    // for (int k = 0; k < 30; ++k) {
-    //	msleep(500);
-    //	qDebug() << "monitor cam: " << monitor_cam.GevIEEE1588Status.ToString();
-    //	qDebug() << "feedback cam: " << fb_cam.GevIEEE1588Status.ToString();
-    //}
-
-    IPylonDevice *fb_device = fb_cam.DetachDevice();
-    IPylonDevice *monitor_device = monitor_cam.DetachDevice();
-
-    CInstantCameraArray arr(2);
-
-    arr[0].Attach(fb_device);
-    arr[1].Attach(monitor_device);
-
-    arr.StartGrabbing();
-
-    CGrabResultPtr img_ptr;
-
-    for (int i = 0; i < 30; ++i) {
-      arr.RetrieveResult(300, img_ptr);
-      qDebug() << img_ptr->GetCameraContext();
+    if (fb_cam.TriggerMode.GetValue() != TriggerMode_On | monitor_cam.TriggerMode.GetValue() != TriggerMode_On) {
+      emit write_to_log(
+          QString("Camera must be hooked up to trigger source in order to time"));
+      return;
     }
 
-    arr.StopGrabbing();
+    prep_cam(&fb_cam);
+    prep_cam(&monitor_cam);
 
-    fb_cam.Attach(arr[0].DetachDevice());
-    monitor_cam.Attach(arr[1].DetachDevice());
-  }
+    QSerialPort teensy;
+
+    if (!open_port(teensy)){
+        emit write_to_log("Port couldn't open");
+        emit finished_analysis();
+        return;
+    }
+
+    teensy.write(QByteArray(1,CORRELATE));
+    teensy.waitForBytesWritten(10);
+
+    teensy.waitForReadyRead();
+    teensy.clear();
+
+    GrabResultPtr_t fb_ptr;
+    GrabResultPtr_t monitor_ptr;
+    const int height[2] = {(int)fb_cam.Height(),(int)monitor_cam.Height()};
+    const int width[2] = {(int)fb_cam.Width(),(int)monitor_cam.Width()};
+    float fb_centroid[2];
+    float monitor_centroid[2];
+
+    QVector<QVector<double>> fb_cam_centroids(2);
+    QVector<QVector<double>> monitor_cam_centroids(2);
+
+    for (int i = 0; i < 2; ++i){
+        fb_cam_centroids[i].resize(5000);
+        monitor_cam_centroids[i].resize(5000);
+    }
+
+    fb_cam.StartGrabbing();
+    monitor_cam.StartGrabbing();
+
+    for (int i = 0; i < 5000; ++i) {
+
+      if (fb_cam.RetrieveResult(1000, fb_ptr, Pylon::TimeoutHandling_Return)) {
+        centroid_alt(fb_ptr, height[0], width[0], fb_centroid, threshold);
+        fb_ptr.Release();
+       }
+
+      if (monitor_cam.RetrieveResult(1000,monitor_ptr,Pylon::TimeoutHandling_Return)) {
+        centroid_alt(monitor_ptr,height[1],width[1],monitor_centroid,threshold);
+        monitor_ptr.Release();
+      }
+
+
+      fb_cam_centroids[0][i] = width[0] - fb_centroid[0];
+      fb_cam_centroids[1][i] = height[0] - fb_centroid[1];
+      monitor_cam_centroids[0][i] = width[0] - monitor_centroid[0];
+      monitor_cam_centroids[1][i] = height[1] - monitor_centroid[1];
+
+
+    }
+
+    fb_cam.StopGrabbing();
+    monitor_cam.StopGrabbing();
+
+    for (int i = 0; i < 2; ++i){
+        vec f(fb_cam_centroids[i].data(),5000);
+        vec m(monitor_cam_centroids[i].data(),5000);
+
+        mat sol = solve(join_rows(m,ones<vec>(5000)),f);
+        cam_correlation_params[i][0] = sol(0);
+        cam_correlation_params[i][1] = sol(1);
+        qDebug() << sol(0);
+        qDebug() << sol(1);
+    }
+
+    emit update_correlation_plot(fb_cam_centroids,monitor_cam_centroids);
+
+    emit finished_analysis();
 }
 
 void processing_thread::run() {
@@ -1285,7 +1357,10 @@ void processing_thread::run() {
     correlate_cameras();
     break;
   case TEST_LOOP_TIME:
-    test_loop_times_dual_cam();
+    if (monitor_cam_enabled)
+        test_loop_times_dual_cam();
+    else
+        test_loop_times();
     break;
   default:
     break;
