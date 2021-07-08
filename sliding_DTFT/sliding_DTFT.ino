@@ -8,8 +8,7 @@
 ADC* adc = new ADC();
 
 int i, j;
-int in[2] = { 0 , 0 };
-int timeout = 0;
+int DAC_cmd_in[2] = { 0 , 0 };
 
 float drive_freqs[3];
 uint16_t DACmax[2] = {0, 0};
@@ -17,7 +16,6 @@ int DAC_pins[2] = {A21, A22};
 int read_pins[2] = {A9, A3};
 
 volatile int trig_count = 0;
-
 
 bool switch_ = false;
 
@@ -28,11 +26,11 @@ void setup()
 
   adc->adc0->setAveraging(16);
   adc->adc0->setResolution(12);
-
   analogWriteResolution(12);
 
   Serial.begin(115200);
 
+  attachInterrupt(digitalPinToInterrupt(A18), trigger_cams, RISING);
   post_setup();
 
 }
@@ -83,33 +81,37 @@ void loop() {
 }
 
 elapsedMicros t;
+
 void trigger_cams_timed() {
+  digitalWriteFast(A14, HIGH); 
   t = 0;
-  digitalWriteFast(A14, HIGH);
-  delayMicroseconds(100);
+  trig_count++; 
+  delayMicroseconds(50);
   digitalWriteFast(A14, LOW);
 }
 
 void test_loop_times() {
 
-  digitalWriteFast(LED_BUILTIN, HIGH);
+  digitalWriteFast(LED_BUILTIN,HIGH);
+
+  trig_count = -1;
+
   detachInterrupt(digitalPinToInterrupt(A18));
   Serial.write((byte)CONTINUE);
 
-  int t_start = 0;
-  std::vector<int> loop_times(5000);
   std::vector<int> shot_number(5000);
-  int* shot_ptr = shot_number.data();
+  std::vector<int> loop_times(5000);
+  int* shot_count_ptr = shot_number.data();
 
   delay(500);
-  attachInterrupt(digitalPinToInterrupt(A18), trigger_cams, RISING);
+  attachInterrupt(digitalPinToInterrupt(A18), trigger_cams_timed, RISING);
 
   for (int k = 0; k < 5000; ++k) {
     
-    elapsedMicros m;
+    elapsedMillis m;
     while (!Serial.available()) {
-      if (m > 5e6) {
-        break;
+      if (m > 1000) {
+        return;
       }
     }
 
@@ -120,14 +122,15 @@ void test_loop_times() {
 
     else {
 
-      Serial.readBytes((char*)shot_ptr, 4);
+      Serial.readBytes((char*)shot_count_ptr, 4);
       analogWriteDAC1(0);
       analogWriteDAC0(0);
-      loop_times[k] = t;
-
+      
+      loop_times[k] = t + 1000*(trig_count - *shot_count_ptr);
+      
     }
 
-    shot_ ptr++;
+    shot_count_ptr++;
 
   }
 
@@ -136,9 +139,11 @@ void test_loop_times() {
 
 }
 
-void write_large_serial_buffer(std::vector<int> &buffer, int chunk_size) {
 
-  const int tot_bytes = buffer.size() * sizeof(int);
+template <typename T>
+void write_large_serial_buffer(std::vector<T> &buffer, int chunk_size) {
+
+  const int tot_bytes = buffer.size() * sizeof(T);
   int tot_bytes_written = 0;
   byte* curr_pos = (byte*)buffer.data();
 
@@ -168,38 +173,45 @@ void write_large_serial_buffer(std::vector<int> &buffer, int chunk_size) {
 
 
 void correlate_cams() {
+  
+  digitalWriteFast(LED_BUILTIN,HIGH);
+  
   trig_count = 0;
   detachInterrupt(digitalPinToInterrupt(A18));
-  delay(500);
+ 
   Serial.write((byte)CONTINUE);
+  
+  delay(500);
   attachInterrupt(digitalPinToInterrupt(A18), trigger_cams, RISING);
+  
   while (trig_count < 5000);
-  detachInterrupt(digitalPinToInterrupt(A18));
-
+  
 }
 
 void trigger_cams() {
   digitalWriteFast(A14, HIGH);
-  delayMicroseconds(300);
+  delayMicroseconds(50);
   digitalWriteFast(A14, LOW);
   trig_count++;
 }
 
 void stabilize() {
 
-  detachInterrupt(digitalPinToInterrupt(A18));
   digitalWriteFast(LED_BUILTIN, HIGH);
+
+  detachInterrupt(digitalPinToInterrupt(A18));
 
   init_actuator();
   Serial.write((byte)CONTINUE);
 
   delay(500);
   attachInterrupt(digitalPinToInterrupt(A18), trigger_cams, RISING);
+  
   while (true) {
 
-    elapsedMicros m;
+    elapsedMillis m;
     while (!Serial.available()) {
-      if (m > 5e6) {
+      if (m > 1000) {
         taper_down();
         return;
       }
@@ -211,8 +223,8 @@ void stabilize() {
 
     else {
 
-      Serial.readBytes((char*)in, 4);
-      analogWriteDAC1(in[0]);
+      Serial.readBytes((char*)DAC_cmd_in, 4);
+      analogWriteDAC1(DAC_cmd_in[0]);
     }
 
   }
@@ -220,20 +232,23 @@ void stabilize() {
 
 void learn_local_system_response() {
 
-  uint16_t* system_response_input_arr = new uint16_t[loc_sys_response_window];
-
   digitalWriteFast(LED_BUILTIN, HIGH);
+
+  uint16_t* system_response_input_arr = new uint16_t[loc_sys_response_window];
 
   Serial.readBytes((char*)&DACmax[1], 2);
   Serial.readBytes((char*)drive_freqs, 12);
 
   generate_local_system_response_input(system_response_input_arr, DACmax[1], drive_freqs);
-
   init_actuator();
+  detachInterrupt(digitalPinToInterrupt(A18));
 
   Serial.clear();
   Serial.write((byte) CONTINUE);
 
+  delay(500);
+  attachInterrupt(digitalPinToInterrupt(A18), trigger_cams, RISING);
+  
   i = 0;
 
   while (i < loc_sys_response_window) {
@@ -264,18 +279,22 @@ void learn_local_system_response() {
 
 void learn_total_system_response() {
 
-  uint16_t* system_response_input_arr = new uint16_t[tot_sys_response_window];
-
   digitalWriteFast(LED_BUILTIN, HIGH);
+
+  uint16_t* system_response_input_arr = new uint16_t[tot_sys_response_window];
 
   Serial.readBytes((char*)&DACmax[1], 2);
 
   generate_total_system_response_input(system_response_input_arr, DACmax[1], 20, 300);
 
   init_actuator();
+  detachInterrupt(digitalPinToInterrupt(A18));
 
   Serial.clear();
   Serial.write((byte) CONTINUE);
+
+  delay(500);
+  attachInterrupt(digitalPinToInterrupt(A18), trigger_cams, RISING);
 
   i = 0;
 
@@ -313,7 +332,6 @@ void find_range() {
 
     DACmax[i] = 0;
     int curr = 0;
-    timeout = 0;
 
     while (true) {
 
@@ -354,6 +372,7 @@ void find_range() {
     }
 
   }
+  
   taper_down();
 }
 
@@ -383,9 +402,9 @@ inline void init_actuator() {
     delay(1);
   }
 
-  for (i = 0; i < 10; ++i) {
+  for (i = 0; i < 20; ++i) {
     //analogWriteDAC0(round((double)DACmax[0] / 2 / 20 * i));
-    analogWriteDAC1(round((double)DACmax[1] / 2 / 20 * i));
+    analogWriteDAC1(round(static_cast<double>(DACmax[1]) / 2 / 20 * i));
     delay(1);
   }
 

@@ -32,7 +32,7 @@
 typedef unsigned short uint16_t;
 
 template <typename T>
-inline void generate_total_system_response_input(T* sys_response_input_arr, uint16_t DAC_max, double lf, double hf) {
+inline void generate_total_system_response_input(T* sys_response_input_arr, double DAC_max, double lf, double hf) {
 
     std::vector<double> omega(tot_sys_response_window);
 
@@ -40,33 +40,33 @@ inline void generate_total_system_response_input(T* sys_response_input_arr, uint
         omega[i] = 2 * PI * (lf + (hf - lf) * i / (double) tot_sys_response_window);
 
     for (int i = 0; i < tot_sys_response_window; ++i)
-        sys_response_input_arr[i] = round(DAC_max / 3.0 * sin(omega[i] * i / 1000.0) + DAC_max / 2);
+        sys_response_input_arr[i] = round(DAC_max / 3 * sin(omega[i] * i / 1000) + DAC_max / 2);
 
 }
 
 template <typename T>
-inline void generate_local_system_response_input(T* sys_response_input_arr, uint16_t DAC_max, float* freqs) {
+inline void generate_local_system_response_input(T* sys_response_input_arr, double DAC_max, float* freqs) {
 
     int idx = 0;
     int i;
 
-    sys_response_input_arr[0] = DAC_max / 2;
+    sys_response_input_arr[0] = round(DAC_max / 2);
 
     ++idx;
 
     for (i = 0; i < section_width; ++i) {
 
-        sys_response_input_arr[i + idx] = round((double)DAC_max / 2 + ((double) DAC_max / 4 + (double) DAC_max / 4 * i / 1000) * sinf(2 * PI * freqs[0] / 1000 * i));
+        sys_response_input_arr[i + idx] = round(DAC_max / 2 + (DAC_max / 4 + DAC_max / 4 * i / 1000) * sinf(2 * PI * freqs[0] / 1000 * i));
     }
     idx += section_width;
 
     for (i = 0; i < section_width; ++i) {
-        sys_response_input_arr[i + idx] = round((double)DAC_max / 2 + ((double) DAC_max / 2 - (double) DAC_max / 4 * i / 1000) * sinf(2 * PI * freqs[1] / 1000 * i));
+        sys_response_input_arr[i + idx] = round(DAC_max / 2 + (DAC_max / 2 - DAC_max / 4 * i / 1000) * sinf(2 * PI * freqs[1] / 1000 * i));
     }
     idx += section_width;
 
     for (i = 0; i < section_width; ++i) {
-        sys_response_input_arr[i + idx] = round((double)DAC_max / 2 + ((double) DAC_max / 4 + (double) DAC_max / 4 * i / 1000) * sinf(2 * PI * freqs[2] / 1000 * i));
+        sys_response_input_arr[i + idx] = round(DAC_max / 2 + (DAC_max / 4 + DAC_max / 4 * i / 1000) * sinf(2 * PI * freqs[2] / 1000 * i));
     }
     idx += section_width;
 

@@ -80,8 +80,8 @@ private:
 	void run() override;
 
 };
-
-inline void centroid(GrabResultPtr_t ptr, const int height, const int width, float out[], const int threshold) {
+template<typename T>
+inline void centroid(GrabResultPtr_t ptr, const int height, const int width, T out[], const int threshold) {
 
 	unsigned char* p = (unsigned char*)ptr->GetBuffer();
 
@@ -104,8 +104,8 @@ inline void centroid(GrabResultPtr_t ptr, const int height, const int width, flo
 		}
 	}
 
-	out[0] = sumx / (float)sum;
-	out[1] = sumy / (float)sum;
+    out[0] = sumx / (T)sum;
+    out[1] = sumy / (T)sum;
 
 }
 

@@ -159,11 +159,10 @@ void processing_thread::prep_cam(Camera_t* cam){
     cam->InternalGrabEngineThreadPriority.SetValue(99);
     cam->GetStreamGrabberParams().TransferLoopThreadPriority.SetValue(99);
     cam->DeviceLinkThroughputLimit.SetToMaximum();
-    cam->MaxNumBuffer.SetValue(1);
+    cam->MaxNumBuffer.SetValue(2);
 
   }
     catch(GenICam::GenericException &e){
-
         qDebug() << e.GetDescription();
     }
 
@@ -201,8 +200,6 @@ void processing_thread::test_loop_times() {
 
   prep_cam(&fb_cam);
 
-  fb_cam.StartGrabbing();
-
   QSerialPort teensy;
 
   if (!open_port(teensy)){
@@ -213,8 +210,12 @@ void processing_thread::test_loop_times() {
 
   teensy.write(QByteArray(1, TEST_LOOP_TIME));
   teensy.waitForBytesWritten(100);
+  teensy.waitForReadyRead();
+  teensy.clear();
 
   int missed = 0;
+
+  fb_cam.StartGrabbing();
 
   for (int i = 0; i < 5000; ++i) {
 
@@ -397,13 +398,9 @@ void processing_thread::test_loop_times_dual_cam(){
 
 void processing_thread::stabilize() {
 
-  QSerialPort teensy;
-
-  open_port(teensy);
+  emit write_to_log(QString("Beginning Stabilization..."));
 
   adjust_framerate();
-
-  emit write_to_log(QString("Beginning Stabilization..."));
 
   if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
 
@@ -413,6 +410,9 @@ void processing_thread::stabilize() {
     emit finished_analysis();
     return;
   }
+
+  QSerialPort teensy;
+  open_port(teensy);
 
   int next_commands[2];
 
@@ -621,9 +621,9 @@ void processing_thread::stream() {
 
 void processing_thread::analyze_spectrum() {
 
-  adjust_framerate();
-
   emit write_to_log(QString("Beginning Noise Profiling..."));
+
+  adjust_framerate();
 
   if (fb_cam.ResultingFrameRate.GetValue() < 1000) {
 
@@ -768,9 +768,9 @@ bool processing_thread::open_port(QSerialPort &teensy) {
 
 void processing_thread::find_actuator_range() {
 
-  adjust_framerate();
-
   emit write_to_log(QString("Finding Actuator Range..."));
+
+  adjust_framerate();
 
   QSerialPort teensy;
 
@@ -1045,6 +1045,8 @@ void processing_thread::learn_local_system_response() {
          return;
        }
 
+       prep_cam(&fb_cam);
+
        if (teensy.waitForReadyRead(1000)) {
          teensy.clear();
        } else {
@@ -1069,19 +1071,21 @@ void processing_thread::learn_local_system_response() {
        int i = 0;
        while (i < loc_sys_response_window) {
 
-         if (fb_cam.RetrieveResult(100, ptr, Pylon::TimeoutHandling_Return)) {
+         if (fb_cam.RetrieveResult(1000, ptr, Pylon::TimeoutHandling_Return)) {
 
            centroid_alt(ptr, height, width, new_centroid, threshold);
-
-           centroids[0][i] = width - new_centroid[0];
-           centroids[1][i] = height - new_centroid[1];
 
            teensy.write(QByteArray(1, SYNC_FLAG));
            if (!teensy.waitForBytesWritten(100)) {
              emit write_to_log(QString("Synchronization error: could not write"));
              break;
            }
+
+           centroids[0][i] = width - new_centroid[0];
+           centroids[1][i] = height - new_centroid[1];
+
            ++i;
+
          } else {
            ++missed;
          }
@@ -1304,13 +1308,10 @@ void processing_thread::correlate_cameras() {
         monitor_ptr.Release();
       }
 
-
       fb_cam_centroids[0][i] = width[0] - fb_centroid[0];
       fb_cam_centroids[1][i] = height[0] - fb_centroid[1];
       monitor_cam_centroids[0][i] = width[0] - monitor_centroid[0];
       monitor_cam_centroids[1][i] = height[1] - monitor_centroid[1];
-
-
     }
 
     fb_cam.StopGrabbing();
@@ -1321,10 +1322,15 @@ void processing_thread::correlate_cameras() {
         vec m(monitor_cam_centroids[i].data(),5000);
 
         mat sol = solve(join_rows(m,ones<vec>(5000)),f);
+        vec error = f - join_rows(m,ones<vec>(5000)) * sol;
+
         cam_correlation_params[i][0] = sol(0);
         cam_correlation_params[i][1] = sol(1);
-        qDebug() << sol(0);
-        qDebug() << sol(1);
+
+        if (i == 1){
+            qDebug() << sol(0);
+            qDebug() << sol(1);
+        }
     }
 
     emit update_correlation_plot(fb_cam_centroids,monitor_cam_centroids);

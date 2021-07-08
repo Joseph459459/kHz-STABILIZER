@@ -132,7 +132,6 @@ void kHz_Stabilizer::on_learnButton_clicked() {
 		MC = new monitor_cam(&proc_thread, this);
         connect(MC, &monitor_cam::write_to_log, this, &kHz_Stabilizer::update_log);
 		connect(&proc_thread, &processing_thread::send_monitor_ptr, MC, &monitor_cam::updateimage);
-		connect(&proc_thread, &processing_thread::send_imgptr_blocking, MC, &monitor_cam::updateimage, Qt::BlockingQueuedConnection);
 		connect(FC, &QDockWidget::destroyed, MC, &QDockWidget::deleteLater);
 
         connect(&proc_thread, &processing_thread::update_correlation_plot,this, &kHz_Stabilizer::update_correlation_plot);
