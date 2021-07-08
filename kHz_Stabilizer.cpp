@@ -84,10 +84,10 @@ void kHz_Stabilizer::on_stabilizeButton_clicked() {
 
 	FC->safe_thread_close();
 
-	FC->close();
+    //FC->close();
 
 	if (proc_thread.monitor_cam_enabled)
-		MC->close();
+        //MC->close();
 
 	update_filter_params();
 

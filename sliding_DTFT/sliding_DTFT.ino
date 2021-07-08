@@ -122,7 +122,7 @@ void test_loop_times() {
 
     else {
 
-      Serial.readBytes((char*)shot_count_ptr, 4);
+      Serial.readBytes((char*)shot_count_ptr, 4); 
       analogWriteDAC1(0);
       analogWriteDAC0(0);
       
@@ -402,7 +402,7 @@ inline void init_actuator() {
     delay(1);
   }
 
-  for (i = 0; i < 20; ++i) {
+  for (i = 0; i < 21; ++i) {
     //analogWriteDAC0(round((double)DACmax[0] / 2 / 20 * i));
     analogWriteDAC1(round(static_cast<double>(DACmax[1]) / 2 / 20 * i));
     delay(1);
