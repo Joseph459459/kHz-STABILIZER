@@ -42,7 +42,7 @@ public:
     std::vector<float> tones[2];
     float centroid_set_points[2];
 
-    std::array<float, 3> drive_freqs;
+    std::array<float, 3> drive_freqs = {200,215,220};
 
     std::array<float, 2> cam_correlation_params[2];
 
@@ -70,7 +70,7 @@ signals:
 	void send_feedback_ptr(GrabResultPtr_t ptr);
 	void send_monitor_ptr(GrabResultPtr_t ptr);
 	void send_imgptr_blocking(GrabResultPtr_t ptr);
-	void updateprogress(int i);
+	void update_progress(int i);
 	void update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y);
     void update_local_sys_response_plot(QVector<QVector<double>> to_plot);
     void update_total_sys_response_plot(QVector<QVector<double>> to_plot);
@@ -105,28 +105,6 @@ inline void centroid(GrabResultPtr_t ptr, const int height, const int width, T o
 		}
 	}
 
-    out[0] = sumx / (T)sum;
-    out[1] = sumy / (T)sum;
-
-}
-
-template<typename T>
-inline void centroid_alt(GrabResultPtr_t ptr, const int height, const int width, T out[], const int threshold) {
-
-    unsigned char* p = (unsigned char*)ptr->GetBuffer();
-
-    int sumx = 0;
-    int sumy = 0;
-    int sum = 0;
-
-    for (int i = 0; i < height*width; ++i, ++p){
-        if (*p < threshold){}
-        else{
-            sumx += (i % width) * *p;
-            sumy += (i/height) * *p;
-            sum += *p;
-        }
-    }
     out[0] = sumx / (T)sum;
     out[1] = sumy / (T)sum;
 

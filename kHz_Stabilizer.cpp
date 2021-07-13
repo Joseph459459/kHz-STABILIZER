@@ -64,7 +64,7 @@ void kHz_Stabilizer::on_stopButton_clicked() {
 	ui.stabilizeButton->setChecked(false);
 }
 
-void kHz_Stabilizer::on_stabilizeButton_clicked() {
+    void kHz_Stabilizer::on_stabilizeButton_clicked() {
 	
 	bool no_filters = true;
 	
@@ -86,8 +86,9 @@ void kHz_Stabilizer::on_stabilizeButton_clicked() {
 
     //FC->close();
 
-	if (proc_thread.monitor_cam_enabled)
+    if (proc_thread.monitor_cam_enabled){
         //MC->close();
+    }
 
 	update_filter_params();
 
@@ -324,7 +325,6 @@ void kHz_Stabilizer::create_fft_plots() {
 
 	connect(&proc_thread, &QThread::started, &animateTimer, &QTimer::stop);
 
-
 }
 
 void kHz_Stabilizer::update_fft_plot(float rms_x, float rms_y, float peak_to_peak_x, float peak_to_peak_y) {
@@ -427,8 +427,6 @@ void kHz_Stabilizer::on_horizontalZoomButton_toggled(bool j) {
             ui.total_response_plot->axisRect(0)->setRangeZoomAxes(ui.total_response_plot->axisRect(0)->axis(QCPAxis::atBottom), NULL);
             ui.total_response_plot->axisRect(1)->setRangeDragAxes(ui.total_response_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
             ui.total_response_plot->axisRect(1)->setRangeZoomAxes(ui.total_response_plot->axisRect(1)->axis(QCPAxis::atBottom), NULL);
-
-
 
 	}
 	else {
@@ -614,7 +612,6 @@ void kHz_Stabilizer::update_filter_params() {
 		}
 	}
 }
-
 
 }
 

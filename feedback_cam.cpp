@@ -242,41 +242,39 @@ void feedback_cam::finished_analysis()
 
 }
 
+void feedback_cam::setup_progress_box(int window){
+
+    QProgressDialog* progressbox = new QProgressDialog("Recording...", "Abort", 0, window, this);
+    progressbox->setWindowTitle(QString("Recording..."));
+    progressbox->setAttribute(Qt::WA_DeleteOnClose);
+    connect(proc_thread, &processing_thread::update_progress, progressbox, &QProgressDialog::setValue);
+    connect(proc_thread, &processing_thread::finished_analysis,progressbox,&QProgressDialog::deleteLater);
+    progressbox->show();
+    progressbox->raise();
+    progressbox->setDisabled(false);
+
+}
+
 void feedback_cam::on_noiseSpectrumButton_clicked() {
 
 	safe_thread_close();
+    this->setDisabled(true);
 
-	progressbox = new QProgressDialog("Recording...", "Abort", 0, fft_window, this);
-	progressbox->setAutoClose(true);
-	progressbox->setAttribute(Qt::WA_DeleteOnClose);
-	progressbox->setWindowTitle(QString("Recording..."));
-	connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
-	progressbox->show();
-	progressbox->raise();
+    setup_progress_box(fft_window);
 
 	proc_thread->run_plan = SPECTRUM;
-	this->setDisabled(true);
-	progressbox->setDisabled(false);
-	proc_thread->start(QThread::TimeCriticalPriority);
+    proc_thread->start(QThread::TimeCriticalPriority);
 
 }
 
 void feedback_cam::on_correlateCamerasButton_clicked() {
 
 	safe_thread_close();
-	
-	//progressbox = new QProgressDialog("Recording...", "Abort", 0, _window, this);
-	//progressbox->setAutoClose(true);
-	//progressbox->setAttribute(Qt::WA_DeleteOnClose);
-	//progressbox->setWindowTitle(QString("Recording..."));
-	//connect(proc_thread, &processing_thread::updateprogress, progressbox, &QProgressDialog::setValue);
-	//progressbox->show();
-	//progressbox->raise();
-	//progressbox->setDisabled(false);
+    this->setDisabled(true);
 
+    setup_progress_box(5000);
 
 	proc_thread->run_plan = CORRELATE;
-	this->setDisabled(true);
 	proc_thread->start(QThread::TimeCriticalPriority);
 
 }
@@ -294,6 +292,7 @@ void feedback_cam::on_loopTimeButton_clicked() {
 
 	safe_thread_close();
 	this->setDisabled(true);
+
     proc_thread->run_plan = TEST_LOOP_TIME;
     proc_thread->start(QThread::TimeCriticalPriority);
     //QThread::currentThread()->setPriority(QThread::TimeCriticalPriority);
@@ -303,7 +302,8 @@ void feedback_cam::on_loopTimeButton_clicked() {
 void feedback_cam::on_totalSystemResponseButton_clicked() {
 
 	safe_thread_close();
-	
+    this->setDisabled(true);
+
     proc_thread->run_plan = LEARN_TOT_SYS_RESPONSE;
 	proc_thread->start(QThread::TimeCriticalPriority);
 }
@@ -311,6 +311,7 @@ void feedback_cam::on_totalSystemResponseButton_clicked() {
 void feedback_cam::on_localSystemResponseButton_clicked() {
 
     safe_thread_close();
+    this->setDisabled(true);
 
     proc_thread->run_plan = LEARN_LOC_SYS_RESPONSE;
     proc_thread->start(QThread::TimeCriticalPriority);

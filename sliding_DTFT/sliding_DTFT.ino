@@ -90,6 +90,13 @@ void trigger_cams_timed() {
   digitalWriteFast(A14, LOW);
 }
 
+void trigger_cams() {
+  digitalWriteFast(A14, HIGH);
+  delayMicroseconds(50);
+  digitalWriteFast(A14, LOW);
+  trig_count++;
+}
+
 void test_loop_times() {
 
   digitalWriteFast(LED_BUILTIN,HIGH);
@@ -186,13 +193,6 @@ void correlate_cams() {
   
   while (trig_count < 5000);
   
-}
-
-void trigger_cams() {
-  digitalWriteFast(A14, HIGH);
-  delayMicroseconds(50);
-  digitalWriteFast(A14, LOW);
-  trig_count++;
 }
 
 void stabilize() {

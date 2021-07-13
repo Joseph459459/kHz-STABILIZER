@@ -11,7 +11,6 @@ class feedback_cam : public QDockWidget
 
 public:
 
-	QProgressDialog* progressbox;
 	QImage* qColored;
 	QVector<QRgb> table_8;
 	processing_thread* proc_thread;
@@ -32,6 +31,7 @@ public:
 
 public slots:
 
+    void setup_progress_box(int window);
 	void safe_thread_close();
 	void updateimage(GrabResultPtr_t ptr);
 	void on_findCentroidButton_clicked();
