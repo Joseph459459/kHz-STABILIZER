@@ -64,7 +64,7 @@ void kHz_Stabilizer::on_stopButton_clicked() {
 	ui.stabilizeButton->setChecked(false);
 }
 
-    void kHz_Stabilizer::on_stabilizeButton_clicked() {
+void kHz_Stabilizer::on_stabilizeButton_clicked() {
 	
 	bool no_filters = true;
 	

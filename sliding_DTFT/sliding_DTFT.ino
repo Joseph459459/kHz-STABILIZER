@@ -65,6 +65,7 @@ void post_setup() {
       case TEST_LOOP_TIME:
         test_loop_times();
         break;
+        
       case CORRELATE:
         correlate_cams();
         break;

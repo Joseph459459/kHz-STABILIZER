@@ -33,8 +33,8 @@ feedback_cam::feedback_cam(processing_thread* thread, QWidget* parent)
 
     height_inc = m_cam->Height.GetInc();
     width_inc = m_cam->Width.GetInc();
-    max_height = m_cam->Height.GetMax();
-    max_width = m_cam->Width.GetMax();
+    max_height = m_cam->SensorHeight();
+    max_width = m_cam->SensorWidth();
     min_height = m_cam->Height.GetMin();
     min_width = m_cam->Width.GetMin();
     min_offset_x = m_cam->OffsetX.GetMin();

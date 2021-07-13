@@ -14,7 +14,7 @@
 using namespace arma;
 
 #define STABILIZE_DEBUG
-#undef STABILIZE_DEBUG
+//s#undef STABILIZE_DEBUG
 
 const char x_y[2] = {'x', 'y'};
 

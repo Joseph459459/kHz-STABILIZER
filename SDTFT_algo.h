@@ -15,6 +15,8 @@ struct complex {
 	float imag = 0;
 };
 
+#define moving_avg_window 20
+
 struct SDTFT_algo {
 	
     SDTFT_algo(int i){};
@@ -46,6 +48,10 @@ struct SDTFT_algo {
 
         this->SET_POINT = SET_POINT;
         this->DAC_max = DAC_max;
+
+        for (int i = 0; i < moving_avg_window; ++i){
+            running_avg[i] = SET_POINT;
+        }
 
 	}
 
@@ -82,8 +88,6 @@ struct SDTFT_algo {
     // the target centroid - should be 1/2 of the max DAC range
 	float SET_POINT;
 	
-#define moving_avg_window 20
-
 	float running_avg[moving_avg_window];
 	float error = 0;
 
@@ -119,9 +123,9 @@ struct SDTFT_algo {
 
 		running_avg[n % moving_avg_window] = in / static_cast<float>(moving_avg_window);
 
-        if (n > moving_avg_window) {
-			error = std::accumulate(running_avg, running_avg + moving_avg_window, 0.f) - SET_POINT;
-		}
+
+        error = std::accumulate(running_avg, running_avg + moving_avg_window, 0.f) - SET_POINT;
+
 
 		target[0] -= differential;
         target[0] -= error/static_cast<float>(moving_avg_window);
