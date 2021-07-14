@@ -154,10 +154,12 @@ class Filter{
 		~Filter( );
 		void init();
 		double do_sample(double data_sample);
+        double single_shot(double data_sample);
 		int get_error_flag(){return m_error_flag;};
 		void get_taps( double *taps );
 		int write_taps_to_file( char* filename );
 		int write_freqres_to_file( char* filename );
+        void post_single_shot();
 };
 
 #endif

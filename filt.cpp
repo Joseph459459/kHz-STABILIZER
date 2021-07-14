@@ -244,6 +244,8 @@ Filter::init()
 	return;
 }
 
+int n = 0;
+
 double 
 Filter::do_sample(double data_sample)
 {
@@ -252,13 +254,45 @@ Filter::do_sample(double data_sample)
 
 	if( m_error_flag != 0 ) return(0);
 
-	for(i = m_num_taps - 1; i >= 1; i--){
-		m_sr[i] = m_sr[i-1];
-	}	
-	m_sr[0] = data_sample;
+    for(i = m_num_taps - 1; i >= 1; i--){
+        m_sr[i] = m_sr[i-1];
+    }
+    m_sr[0] = data_sample;
 
-	result = 0;
-	for(i = 0; i < m_num_taps; i++) result += m_sr[i] * m_taps[i];
+    result = 0;
+    for(i = 0; i < m_num_taps; i++) result += m_sr[i] * m_taps[i];
+
+//    n = n % m_num_taps;
+//    m_sr[n] = data_sample;
+
+//    result = 0;
+//    for(i = 0; i < m_num_taps; i++)
+//        result += m_sr[(n + i) % m_num_taps] * m_taps[i];
+
+//    n++;
 
 	return result;
+}
+
+double result;
+
+double
+Filter::single_shot(double data_sample){
+
+    m_sr[0] = data_sample;
+    return result += data_sample * m_taps[0];
+
+}
+
+
+void
+Filter::post_single_shot(){
+
+        int i;
+        for(i = m_num_taps - 1; i >= 1; i--){
+            m_sr[i] = m_sr[i-1];
+        }
+
+        result = 0;
+        for(i = 1; i < m_num_taps; i++) result += m_sr[i] * m_taps[i];
 }

@@ -5,6 +5,7 @@
 #include <array>
 #include <numeric>
 #include <vector>
+#include "filt.h"
 
 #define max_tones 5
 #define sq(x) ((x) * (x))
@@ -14,10 +15,10 @@ struct complex {
   float imag = 0;
 };
 
-#define moving_avg_window 20
+#define hp_taps 301
 
 #define HIGHPASS
-#undef HIGHPASS
+//#undef HIGHPASS
 
 struct SDTFT_algo {
 
@@ -49,12 +50,12 @@ struct SDTFT_algo {
     this->SET_POINT = SET_POINT;
     this->DAC_max = DAC_max;
 
-    for (int i = 0; i < moving_avg_window; ++i)
-      moving_avg[i] = SET_POINT / static_cast<float>(moving_avg_window);
+    high_pass = new Filter(HPF,hp_taps,1000,20);
   }
 
   float *noise;
 
+  Filter* high_pass;
   // the complex fourier component
   complex Chi[max_tones];
 
@@ -86,7 +87,6 @@ struct SDTFT_algo {
   // the target centroid
   float SET_POINT;
 
-  float moving_avg[moving_avg_window];
   float error = 0;
 
   int wrap(int N, int L, int H) {
@@ -94,23 +94,25 @@ struct SDTFT_algo {
     return (N - L + (N < L) * H) % H + L;
   }
 
+  double mean_offset = 0;
+
   int next_DAC_cmd(float in) {
 
 #ifdef HIGHPASS
-    moving_avg[n % moving_avg_window] =
-        moving_avg[n % moving_avg_window - 1] +
-        in / static_cast<float>(moving_avg_window) -
-        moving_avg[n % moving_avg_window + 1];
 
-    if (n < moving_avg_window)
-      return DAC_cmds[0];
+    noise_element = high_pass->single_shot(in);
 
-    noise_element = in - moving_avg[n % moving_avg_window];
+    if (n < hp_taps)
+        return round(static_cast<float>(DAC_max) / 2);
+
 #else
-    noise_element = in - target[0];
+    noise_element = in;
 #endif
 
-    noise_element -= target[0];
+    if (n == hp_taps)
+        noise_element = 0;
+    else
+        noise_element -= target[0];
 
     differential = 0;
 
@@ -148,6 +150,7 @@ struct SDTFT_algo {
       DAC_cmds[0] = 0;
       return 0;
     }
+
     if (std::min(DAC_cmds[0], DAC_max) == DAC_max) {
       target[0] = (A + C + D) * DAC_max + B - (C + 2 * D) * DAC_cmds[1] +
                   D * DAC_cmds[2];
@@ -165,12 +168,15 @@ struct SDTFT_algo {
     target[2] = target[1];
     target[1] = target[0];
 
+    high_pass->post_single_shot();
+
     ++n;
 
 #ifdef HIGHPASS
-    if (n < moving_avg_window)
+    if (n < hp_taps)
       return;
 #endif
+
     for (int j = 0; j < num_tones; ++j) {
       old_centroid[j] = noise[wrap(n + 1 - N[j], 0, maxN)];
     }
