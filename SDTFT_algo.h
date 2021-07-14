@@ -49,9 +49,8 @@ struct SDTFT_algo {
         this->SET_POINT = SET_POINT;
         this->DAC_max = DAC_max;
 
-        for (int i = 0; i < moving_avg_window; ++i){
-            running_avg[i] = SET_POINT;
-        }
+        for (int i = 0; i < moving_avg_window; ++i)
+            moving_avg[i] = SET_POINT / static_cast<float>(moving_avg_window);
 
 	}
 
@@ -85,10 +84,10 @@ struct SDTFT_algo {
 	int DAC_cmds[3] = { 0 };
     int DAC_max = 0;
 
-    // the target centroid - should be 1/2 of the max DAC range
+    // the target centroid
 	float SET_POINT;
 	
-	float running_avg[moving_avg_window];
+    float moving_avg[moving_avg_window];
 	float error = 0;
 
     int wrap(int N, int L, int H) {
@@ -97,7 +96,13 @@ struct SDTFT_algo {
 
     int next_DAC_cmd(float in) {
 		
-		noise_element = in - target[0];
+        moving_avg[n % moving_avg_window] = moving_avg[n % moving_avg_window - 1] + in / static_cast<float>(moving_avg_window)
+                - moving_avg[n % moving_avg_window + 1];
+
+        if (n < moving_avg_window)
+            return DAC_cmds[0];
+
+        noise_element = in - moving_avg[n % moving_avg_window];
 
 		differential = 0;
 
@@ -119,18 +124,10 @@ struct SDTFT_algo {
             differential += mag * (cosf(omega[j] * (N[j]) + phase) - cosf(omega[j] * (N[j] - 1) + phase));
 		}
 
-        // Computes moving average to perform proportional feedback
-
-		running_avg[n % moving_avg_window] = in / static_cast<float>(moving_avg_window);
-
-
-        error = std::accumulate(running_avg, running_avg + moving_avg_window, 0.f) - SET_POINT;
-
 
 		target[0] -= differential;
-        target[0] -= error/static_cast<float>(moving_avg_window);
 		  
-        DAC_cmds[0] = (target[0] - B + (C + 2 * D) * DAC_cmds[1] - D * DAC_cmds[2]) / (A + C + D);
+        DAC_cmds[0] = round((target[0] - B + (C + 2 * D) * DAC_cmds[1] - D * DAC_cmds[2]) / (A + C + D));
 
         if (std::max(DAC_cmds[0],0) == 0){
             target[0] = B - (C + 2*D)*DAC_cmds[1] + D*DAC_cmds[2];
@@ -155,6 +152,9 @@ struct SDTFT_algo {
 		target[1] = target[0];
 
 		++n;
+
+        if (n < moving_avg_window)
+            return;
 
 		for (int j = 0; j < num_tones; ++j) {
             old_centroid[j] = noise[wrap(n + 1 - N[j], 0, maxN)];

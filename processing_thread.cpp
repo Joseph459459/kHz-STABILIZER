@@ -14,7 +14,7 @@
 using namespace arma;
 
 #define STABILIZE_DEBUG
-//s#undef STABILIZE_DEBUG
+//#undef STABILIZE_DEBUG
 
 const char x_y[2] = {'x', 'y'};
 
@@ -451,8 +451,7 @@ void processing_thread::stabilize() {
   }
 
   std::vector<SDTFT_algo> axes = {
-      SDTFT_algo(0), SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_val[1],
-                                centroid_set_points[1])};
+      SDTFT_algo(0), SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_val[1],0)};
 
 #ifdef STABILIZE_DEBUG
 
@@ -473,18 +472,16 @@ void processing_thread::stabilize() {
 
   qDebug() << "beginning stabilizer debug";
   qDebug() << "grabbed centroid " << new_centroid[1];
-  qDebug() << "set point " << centroid_set_points[1];
 
   centroid(ptr,height,width, new_centroid,threshold);
   new_centroid[1] = height - new_centroid[1];
 
   qDebug() << "beginning stabilizer debug";
   qDebug() << "grabbed centroid " << new_centroid[1];
-  qDebug() << "set point " << centroid_set_points[1];
 
   std::vector<double> noise(2000);
   for (int i = 26; i < 2026; ++i) {
-    noise[i - 26] = 0.05 * cos(2 * PI * 210 / 1000 * i);
+    noise[i - 26] = 0.61 * cos(2 * PI * 210 / 1000 * i);
   }
 
   std::ofstream SDEBUG("/home/loasis/Desktop/stabilize_data.txt",std::ofstream::out);
@@ -1250,14 +1247,6 @@ void processing_thread::learn_local_system_response() {
          vec DAC_full;
          vec centroid_full;
 
-         /* CALCULATE MEAN VALUES (SET POINTS) FOR STABILIZING ---*/
-
-         double sum =
-             std::accumulate(centroids[i].begin(), centroids[i].end(), 0.0);
-         double centroid_mean = sum / centroids[i].size();
-
-         centroid_set_points[i] = centroid_mean;
-
          for (int freq_idx = 0; freq_idx < 3; ++freq_idx) {
 
            /* EXTRACT SECTION (A SINGLE FREQUNCY COMPONENT) ----*/
@@ -1288,7 +1277,7 @@ void processing_thread::learn_local_system_response() {
                                  0.0);
            double filtered_mean = sum / centroid_section.size();
            for (double &d : centroid_section)
-             d += centroid_mean - filtered_mean;
+             d -= filtered_mean;
 
            /* JOIN FREQUENCY SECTIONS --------------------------------------*/
 
@@ -1307,25 +1296,22 @@ void processing_thread::learn_local_system_response() {
 
          /* SOLVE FOR SYSTEM RESPONSE FUNCTION -------------------------*/
 
-//         mat A_B =
-//             solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows)), centroid_full);
+#define TAYLOR_EXPANDED
+//#undef TAYLOR_EXPANDED
 
-//         vec errors = centroid_full - (A_B(0) * DAC_full + A_B(1));
-
-//         double C = as_scalar(solve(dDAC_full, errors));
-
-//         errors = errors - C*dDAC_full;
-
-//         double D = as_scalar(solve(ddDAC_full,errors));
-
-//         errors = errors - D*ddDAC_full;
-
-//         std::array<double, 4> fit = {A_B(0), A_B(1), C, D};
-
-         mat ABCD = solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows),dDAC_full,ddDAC_full), centroid_full);
+#ifdef TAYLOR_EXPANDED
+        double A = as_scalar(solve(DAC_full, centroid_full));
+        vec errors = centroid_full - (A * DAC_full);
+        double C = as_scalar(solve(dDAC_full, errors));
+        errors = errors - C*dDAC_full;
+        double D = as_scalar(solve(ddDAC_full,errors));
+        errors = errors - D*ddDAC_full;
+        std::array<double, 4> fit = {A, 0, -C, -D};
+#else
+         mat ABCD = solve(join_rows(DAC_full, zeros<vec>(DAC_full.n_rows),dDAC_full,ddDAC_full), centroid_full);
          vec errors = centroid_full - join_rows(DAC_full, ones<vec>(DAC_full.n_rows),dDAC_full,ddDAC_full)*ABCD;
          std::array<double,4> fit = {ABCD(0),ABCD(1),ABCD(2),ABCD(3)};
-
+#endif
          fit_params[i] = fit;
 
          model_RMSE[i] =

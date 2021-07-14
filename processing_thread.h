@@ -40,7 +40,6 @@ public:
 
     std::vector<int> N[2];
     std::vector<float> tones[2];
-    float centroid_set_points[2];
 
     std::array<float, 3> drive_freqs = {200,215,220};
 
