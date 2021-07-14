@@ -621,7 +621,7 @@ void processing_thread::stabilize_dual_cam(){
 
     std::vector<SDTFT_algo> axes = {
         SDTFT_algo(0), SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_val[1],
-                                  centroid_set_points[1])};
+                                  0)};
 
     int missed = 0;
     fb_cam.StartGrabbing();
@@ -1273,7 +1273,7 @@ void processing_thread::learn_local_system_response() {
 
            /*FIX MEAN OFFSET INTRODUCED BY FILTER ---------------------*/
 
-           sum = std::accumulate(centroid_section.begin(), centroid_section.end(),
+           double sum = std::accumulate(centroid_section.begin(), centroid_section.end(),
                                  0.0);
            double filtered_mean = sum / centroid_section.size();
            for (double &d : centroid_section)

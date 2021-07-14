@@ -17,6 +17,10 @@ struct complex {
 
 #define moving_avg_window 20
 
+#define HIGHPASS
+#undef HIGHPASS
+
+
 struct SDTFT_algo {
 	
     SDTFT_algo(int i){};
@@ -96,6 +100,7 @@ struct SDTFT_algo {
 
     int next_DAC_cmd(float in) {
 		
+#ifdef HIGHPASS
         moving_avg[n % moving_avg_window] = moving_avg[n % moving_avg_window - 1] + in / static_cast<float>(moving_avg_window)
                 - moving_avg[n % moving_avg_window + 1];
 
@@ -103,6 +108,11 @@ struct SDTFT_algo {
             return DAC_cmds[0];
 
         noise_element = in - moving_avg[n % moving_avg_window];
+#else
+       noise_element = in - target[0];
+#endif
+
+        noise_element -= target[0];
 
 		differential = 0;
 
@@ -153,9 +163,10 @@ struct SDTFT_algo {
 
 		++n;
 
+#ifdef HIGHPASS
         if (n < moving_avg_window)
             return;
-
+#endif
 		for (int j = 0; j < num_tones; ++j) {
             old_centroid[j] = noise[wrap(n + 1 - N[j], 0, maxN)];
 		}
