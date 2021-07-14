@@ -395,6 +395,13 @@ border-style: inset;
        </widget>
       </item>
       <item>
+       <widget class="QCheckBox" name="stableModelBox">
+        <property name="text">
+         <string>Stable Model</string>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QPushButton" name="correlateCamerasButton">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">

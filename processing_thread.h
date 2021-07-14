@@ -47,6 +47,8 @@ public:
 
     std::atomic_bool monitor_cam_enabled = false;
 
+    bool stable_model;
+
 public slots:
 	void stabilize();
 	void stream();

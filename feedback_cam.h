@@ -52,6 +52,7 @@ public slots:
 	void on_resetButton_clicked();
 	void finished_analysis();
 	void on_triggerButton_toggled(bool);
+    void on_stableModelButton_toggled(bool);
 
 signals:
 	void write_to_log(QString q);
