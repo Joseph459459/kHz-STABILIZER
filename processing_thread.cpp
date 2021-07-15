@@ -496,7 +496,7 @@ void processing_thread::stabilize() {
 
   std::vector<double> noise(2000);
   for (int i = 26; i < 2026; ++i) {
-    noise[i - 26] = 0.61 * cos(2 * PI * 210 / 1000 * i);
+    noise[i - 26] = 0.06 * cos(2 * PI * 210 / 1000 * i) + 0.1 * cos(2 * PI * 4 / 1000 * i);
   }
 
   std::ofstream SDEBUG("/home/loasis/Desktop/stabilize_data.txt",
@@ -511,15 +511,20 @@ void processing_thread::stabilize() {
 
     next_commands[1] = axes[1].next_DAC_cmd(new_centroid[1]);
 
-    SDEBUG << axes[1].DAC_cmds[0] << endl;
+    if (axes[1].n > 301){
+    //SDEBUG << axes[1].DAC_cmds[0] << endl;
     SDEBUG << axes[1].target[0] << endl;
     SDEBUG << axes[1].noise_element << endl;
     SDEBUG << new_centroid[1] << endl;
+    }
 
     axes[1].prepare_next_cmd();
+
   }
 
   SDEBUG.close();
+
+  system("python3 /home/loasis/Desktop/stabilizer_tests.py");
 
 #else
 
@@ -566,6 +571,8 @@ void processing_thread::stabilize() {
   SDEBUG.close();
 
   fb_cam.StopGrabbing();
+
+  system("python3 /home/loasis/Desktop/stabilizer_tests.py");
 
 #endif
 
@@ -1324,16 +1331,15 @@ void processing_thread::learn_local_system_response() {
 
         double A = as_scalar(solve(DAC_full, centroid_full));
         errors = centroid_full - (A * DAC_full);
-        double C = as_scalar(solve(dDAC_full, errors));
-        errors = errors - C * dDAC_full;
-        double D = as_scalar(solve(ddDAC_full, errors));
-        errors = errors - D * ddDAC_full;
-        fit = {A, 0, -C, -D};
+        mat C_D = solve(join_rows(dDAC_full,ddDAC_full), errors);
+        errors = errors - join_rows(dDAC_full,ddDAC_full)* C_D;
+        fit = {A, 0, -C_D(0), -C_D(1)};
+
       } else {
         mat ABCD = solve(join_rows(DAC_full, zeros<vec>(DAC_full.n_rows),
                                    dDAC_full, ddDAC_full),
                          centroid_full);
-        errors = centroid_full - join_rows(DAC_full, ones<vec>(DAC_full.n_rows),
+        errors = centroid_full - join_rows(DAC_full, zeros<vec>(DAC_full.n_rows),
                                            dDAC_full, ddDAC_full) *
                                      ABCD;
         fit = {ABCD(0), ABCD(1), ABCD(2), ABCD(3)};

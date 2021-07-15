@@ -47,7 +47,7 @@ public:
 
     std::atomic_bool monitor_cam_enabled = false;
 
-    bool stable_model;
+    bool stable_model = false;
 
 public slots:
 	void stabilize();

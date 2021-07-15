@@ -26,7 +26,7 @@ camera_select::camera_select(QWidget *parent)
 
     system("echo Balancing interrupt requests...");
     system("echo");
-    system("irqbalance --foreground --oneshot --banirq=33 --banirq=39");
+    //system("irqbalance --foreground --oneshot --banirq=33 --banirq=39");
     system("echo DONE");
 
     system("echo Assigning camera and microcontroller interrupts to core 2...");

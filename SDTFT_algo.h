@@ -102,14 +102,14 @@ struct SDTFT_algo {
 
     noise_element = high_pass->single_shot(in);
 
-    if (n < hp_taps)
+    if (n < hp_taps + hp_taps/2)
         return round(static_cast<float>(DAC_max) / 2);
 
 #else
     noise_element = in;
 #endif
 
-    if (n == hp_taps)
+    if (n == hp_taps + hp_taps/2)
         noise_element = 0;
     else
         noise_element -= target[0];
@@ -173,7 +173,7 @@ struct SDTFT_algo {
     ++n;
 
 #ifdef HIGHPASS
-    if (n < hp_taps)
+    if (n < hp_taps + 1)
       return;
 #endif
 

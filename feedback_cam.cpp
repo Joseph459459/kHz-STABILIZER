@@ -307,7 +307,7 @@ void feedback_cam::on_totalSystemResponseButton_clicked() {
   proc_thread->start(QThread::TimeCriticalPriority);
 }
 
-void feedback_cam::on_stableModelButton_toggled(bool checked) {
+void feedback_cam::on_stableModelBox_toggled(bool checked) {
   proc_thread->stable_model = checked;
 }
 
