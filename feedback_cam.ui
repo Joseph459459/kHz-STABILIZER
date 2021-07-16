@@ -399,6 +399,9 @@ border-style: inset;
         <property name="text">
          <string>Stable Model</string>
         </property>
+        <property name="checked">
+         <bool>false</bool>
+        </property>
        </widget>
       </item>
       <item>

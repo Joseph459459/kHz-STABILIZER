@@ -8,7 +8,7 @@
 #include "fftw3.h"
 #include <QFuture>
 #include <array>
-
+#include <nlopt.hpp>
 
 class processing_thread : public QThread
 {
@@ -30,6 +30,8 @@ public:
     QVector<double> centroids[2];
     QVector<double> fft[2];
 
+    float centroid_set_points[2];
+
     int run_plan;
 
 	int threshold = 0;
@@ -41,7 +43,7 @@ public:
     std::vector<int> N[2];
     std::vector<float> tones[2];
 
-    std::array<float, 3> drive_freqs = {200,215,220};
+    std::array<float, 3> drive_freqs = {200,216,220};
 
     std::array<float, 2> cam_correlation_params[2];
 

@@ -58,6 +58,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 LIBS += -llapack -lblas -larmadillo -lgsl -lfftw3f -lfftw3
 
+LIBS += -L/home/loasis/Downloads/nlopt-2.6.2/build/ -lnlopt
+
 LIBS += -L$$(PYLON_ROOT)/lib/ -lpylonbase
 LIBS += -L$$(PYLON_ROOT)/lib/ -lpylonbase-6.2.0
 LIBS += -L$$(PYLON_ROOT)/lib/ -lpylon_TL_gige

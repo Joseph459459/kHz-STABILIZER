@@ -14,7 +14,7 @@
 using namespace arma;
 
 #define STABILIZE_DEBUG
-//#undef STABILIZE_DEBUG
+#undef STABILIZE_DEBUG
 
 const char x_y[2] = {'x', 'y'};
 
@@ -466,7 +466,7 @@ void processing_thread::stabilize() {
 
   std::vector<SDTFT_algo> axes = {
       SDTFT_algo(0),
-      SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_val[1], 0)};
+      SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_val[1], centroid_set_points[1])};
 
 #ifdef STABILIZE_DEBUG
 
@@ -487,22 +487,18 @@ void processing_thread::stabilize() {
 
   qDebug() << "beginning stabilizer debug";
   qDebug() << "grabbed centroid " << new_centroid[1];
+  qDebug() << "set point " << centroid_set_points[1];
 
-  centroid(ptr, height, width, new_centroid, threshold);
-  new_centroid[1] = height - new_centroid[1];
-
-  qDebug() << "beginning stabilizer debug";
-  qDebug() << "grabbed centroid " << new_centroid[1];
 
   std::vector<double> noise(2000);
   for (int i = 26; i < 2026; ++i) {
-    noise[i - 26] = 0.06 * cos(2 * PI * 210 / 1000 * i) + 0.1 * cos(2 * PI * 4 / 1000 * i);
+    noise[i - 26] = 0.15 * cos(2 * PI * 210 / 1000 * i);
   }
 
   std::ofstream SDEBUG("/home/loasis/Desktop/stabilize_data.txt",
                        std::ofstream::out);
 
-  for (int i = 0; i < 2000; ++i) {
+  for (int i = 0; i < 1000; ++i) {
 
     if (i == 0)
       new_centroid[1] = noise[i] + new_centroid[1];
@@ -511,12 +507,11 @@ void processing_thread::stabilize() {
 
     next_commands[1] = axes[1].next_DAC_cmd(new_centroid[1]);
 
-    if (axes[1].n > 301){
-    //SDEBUG << axes[1].DAC_cmds[0] << endl;
+    SDEBUG << axes[1].DAC_cmds[0] << endl;
     SDEBUG << axes[1].target[0] << endl;
     SDEBUG << axes[1].noise_element << endl;
     SDEBUG << new_centroid[1] << endl;
-    }
+
 
     axes[1].prepare_next_cmd();
 
@@ -563,7 +558,7 @@ void processing_thread::stabilize() {
       axes[1].prepare_next_cmd();
 
       ++k;
-      if (k == 5000)
+      if (k == 1000)
         acquiring = false;
     }
   }
@@ -628,7 +623,6 @@ void processing_thread::stabilize_dual_cam() {
 
   teensy.write(QByteArray(1, STABILIZE));
   teensy.waitForBytesWritten(100);
-  teensy.waitForReadyRead();
 
   if (teensy.waitForReadyRead(1000)) {
     teensy.clear();
@@ -647,35 +641,60 @@ void processing_thread::stabilize_dual_cam() {
   const int width[2] = {(int)fb_cam.Width(), (int)monitor_cam.Width()};
   float fb_centroid[2];
   float monitor_centroid[2];
+  int next_commands[2];
 
   std::vector<SDTFT_algo> axes = {
       SDTFT_algo(0),
-      SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_val[1], 0)};
+      SDTFT_algo(fit_params[1], tones[1], N[1], max_DAC_val[1], centroid_set_points[1],cam_correlation_params[1])};
 
-  int missed = 0;
+  std::ofstream SDEBUG("/home/loasis/Desktop/stabilize_data.txt",
+                       std::ofstream::out);
+
   fb_cam.StartGrabbing();
   monitor_cam.StartGrabbing();
 
-  for (int i = 0; i < 5000; ++i) {
-
-    if (fb_cam.RetrieveResult(1000, fb_ptr, Pylon::TimeoutHandling_Return)) {
-      centroid(fb_ptr, height[0], width[0], fb_centroid, threshold);
-      fb_ptr.Release();
-    }
+  for (int i = 0; i < 1000; ++i) {
 
     if (monitor_cam.RetrieveResult(1000, monitor_ptr,
                                    Pylon::TimeoutHandling_Return)) {
       centroid(monitor_ptr, height[1], width[1], monitor_centroid, threshold);
-      monitor_ptr.Release();
     }
 
+    next_commands[1] = axes[1].next_DAC_cmd_MONITOR(height[1] - monitor_centroid[1]);
+
     teensy.write(QByteArray(1, SYNC_FLAG));
-    teensy.write((const char *)&i, 4);
+    teensy.write((const char *)&next_commands[1], 4);
     teensy.waitForBytesWritten(10);
+
+    axes[1].prepare_next_cmd();
+
+   if (fb_cam.RetrieveResult(1000, fb_ptr, Pylon::TimeoutHandling_Return)) {
+        centroid(fb_ptr, height[0], width[0], fb_centroid, threshold);
+      }
+
+   axes[1].feedback_offset(height[0] - fb_centroid[1]);
+
+   if (monitor_ptr->GetBlockID() != fb_ptr->GetBlockID()){
+       emit write_to_log("Camera synchronization failure");
+       break;
+   }
+   monitor_ptr.Release();
+   fb_ptr.Release();
+
+   SDEBUG << axes[1].DAC_cmds[0] << endl;
+   SDEBUG << axes[1].target[0] << endl;
+   SDEBUG << axes[1].noise_element << endl;
+   SDEBUG << height[1] - monitor_centroid[1] << endl;
+   SDEBUG << height[0] - fb_centroid[1] << endl;
+
   }
+
+  SDEBUG.close();
 
   fb_cam.StopGrabbing();
   monitor_cam.StopGrabbing();
+
+  system("python3 /home/loasis/Desktop/stabilizer_tests_dualcam.py");
 
   emit finished_analysis();
 }
@@ -1275,6 +1294,14 @@ void processing_thread::learn_local_system_response() {
       vec DAC_full;
       vec centroid_full;
 
+      /* CALCULATE MEAN VALUES (SET POINTS) FOR STABILIZING ---*/
+
+      double sum =
+          std::accumulate(centroids[i].begin(), centroids[i].end(), 0.0);
+      double centroid_mean = sum / centroids[i].size();
+
+      centroid_set_points[i] = centroid_mean;
+
       for (int freq_idx = 0; freq_idx < 3; ++freq_idx) {
 
         /* EXTRACT SECTION (A SINGLE FREQUNCY COMPONENT) ----*/
@@ -1305,7 +1332,7 @@ void processing_thread::learn_local_system_response() {
                                      centroid_section.end(), 0.0);
         double filtered_mean = sum / centroid_section.size();
         for (double &d : centroid_section)
-          d -= filtered_mean;
+          d += centroid_mean - filtered_mean;
 
         /* JOIN FREQUENCY SECTIONS --------------------------------------*/
 
@@ -1329,17 +1356,17 @@ void processing_thread::learn_local_system_response() {
 
       if (stable_model) {
 
-        double A = as_scalar(solve(DAC_full, centroid_full));
-        errors = centroid_full - (A * DAC_full);
+        mat A_B = solve(join_rows(DAC_full,ones<vec>(DAC_full.n_rows)), centroid_full);
+        errors = centroid_full - join_rows(DAC_full, ones<vec>(DAC_full.n_rows)) * A_B;
         mat C_D = solve(join_rows(dDAC_full,ddDAC_full), errors);
         errors = errors - join_rows(dDAC_full,ddDAC_full)* C_D;
-        fit = {A, 0, -C_D(0), -C_D(1)};
+        fit = {A_B(0), A_B(1), -C_D(0), -C_D(1)};
 
       } else {
-        mat ABCD = solve(join_rows(DAC_full, zeros<vec>(DAC_full.n_rows),
+        mat ABCD = solve(join_rows(DAC_full, ones<vec>(DAC_full.n_rows),
                                    dDAC_full, ddDAC_full),
                          centroid_full);
-        errors = centroid_full - join_rows(DAC_full, zeros<vec>(DAC_full.n_rows),
+        errors = centroid_full - join_rows(DAC_full, ones<vec>(DAC_full.n_rows),
                                            dDAC_full, ddDAC_full) *
                                      ABCD;
         fit = {ABCD(0), ABCD(1), ABCD(2), ABCD(3)};
@@ -1368,7 +1395,7 @@ void processing_thread::learn_local_system_response() {
         QString::number(fit_params[1][3], 'e', 2) + " ");
 
     emit write_to_log(
-        " centroid_x = " + QString::number(fit_params[0][0], 'e', 2) + ", " +
+        " centsroid_x = " + QString::number(fit_params[0][0], 'e', 2) + ", " +
         QString::number(fit_params[0][1], 'e', 2) + ", " +
         QString::number(fit_params[0][2], 'e', 2) + ", " +
         QString::number(fit_params[0][3], 'e', 2) + " ");
@@ -1472,7 +1499,7 @@ void processing_thread::correlate_cameras() {
 
     fb_cam_centroids[0][i] = width[0] - fb_centroid[0];
     fb_cam_centroids[1][i] = height[0] - fb_centroid[1];
-    monitor_cam_centroids[0][i] = width[0] - monitor_centroid[0];
+    monitor_cam_centroids[0][i] = width[1] - monitor_centroid[0];
     monitor_cam_centroids[1][i] = height[1] - monitor_centroid[1];
   }
 
@@ -1484,16 +1511,14 @@ void processing_thread::correlate_cameras() {
     vec f(fb_cam_centroids[i].data(), 5000);
     vec m(monitor_cam_centroids[i].data(), 5000);
 
+    f = f - mean(f) + centroid_set_points[1];
+
     mat sol = solve(join_rows(m, ones<vec>(5000)), f);
     vec error = f - join_rows(m, ones<vec>(5000)) * sol;
 
     cam_correlation_params[i][0] = sol(0);
     cam_correlation_params[i][1] = sol(1);
 
-    if (i == 1) {
-      qDebug() << sol(0);
-      qDebug() << sol(1);
-    }
   }
 
   emit write_to_log(
@@ -1515,7 +1540,10 @@ void processing_thread::run() {
 
   switch (run_plan) {
   case STABILIZE:
-    stabilize();
+    if (monitor_cam_enabled)
+        stabilize_dual_cam();
+    else
+        stabilize();
     break;
   case STREAM:
     stream();

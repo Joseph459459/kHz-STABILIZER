@@ -186,6 +186,7 @@ void correlate_cams() {
   
   trig_count = 0;
   detachInterrupt(digitalPinToInterrupt(A18));
+  init_actuator();
  
   Serial.write((byte)CONTINUE);
   
@@ -193,6 +194,8 @@ void correlate_cams() {
   attachInterrupt(digitalPinToInterrupt(A18), trigger_cams, RISING);
   
   while (trig_count < 5000);
+
+  taper_down();
   
 }
 
@@ -203,10 +206,11 @@ void stabilize() {
   detachInterrupt(digitalPinToInterrupt(A18));
 
   init_actuator();
+  
   Serial.write((byte)CONTINUE);
 
   delay(500);
-  attachInterrupt(digitalPinToInterrupt(A18), trigger_cams, RISING);
+  attachInterrupt(digitalPinToInterrupt(A18), trigger_cams_timed, RISING);
   
   while (true) {
 
@@ -226,6 +230,10 @@ void stabilize() {
 
       Serial.readBytes((char*)DAC_cmd_in, 4);
       analogWriteDAC1(DAC_cmd_in[0]);
+      if (t > 1000){
+        taper_down()
+        return;
+      }
     }
 
   }

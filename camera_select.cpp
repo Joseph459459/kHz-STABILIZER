@@ -21,17 +21,17 @@ camera_select::camera_select(QWidget *parent)
 
     system("echo Increasing process priorities...");
     system("echo");
-    //system("sudo renice -n -19 -g $(ps -o pgid -p \"$(pidof kHz_Stabilizer)\")");
+    system("sudo renice -n -19 -g $(ps -o pgid -p \"$(pidof kHz_Stabilizer)\")");
     system("echo DONE");
 
     system("echo Balancing interrupt requests...");
     system("echo");
-    //system("irqbalance --foreground --oneshot --banirq=33 --banirq=39");
+    system("irqbalance --foreground --oneshot --banirq=33 --banirq=34");
     system("echo DONE");
 
     system("echo Assigning camera and microcontroller interrupts to core 2...");
     system("echo");
-    system("sudo tuna --irqs=33,39 --cpus=2 --move");
+    system("sudo tuna --irqs=33,34 --cpus=2 --move");
     system("echo DONE");
 
 
