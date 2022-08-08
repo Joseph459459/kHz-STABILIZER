@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Natal"
+  given-names: "Joseph"
+  orcid: "https://orcid.org/0000-0002-7005-3154"
+title: "kHz-STABILIZER"
+version: 1.0.0
+doi: 
+date-released: 2022-08-08
+url: "https://github.com/Joe459/kHz-STABILIZER"
